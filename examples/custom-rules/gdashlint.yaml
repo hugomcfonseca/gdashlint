@@ -1,0 +1,76 @@
+version: 1
+
+failOn: error
+
+output:
+  format: text
+  sort: severity
+
+rules:
+  core.dashboard-title-required:
+    enabled: true
+    severity: error
+
+  core.dashboard-uid-required:
+    enabled: true
+    severity: error
+
+  core.dashboard-tags-required:
+    enabled: true
+    severity: warning
+    options:
+      min: 1
+
+  core.refresh-min-interval:
+    enabled: true
+    severity: error
+    options:
+      min: 60s
+
+  core.dashboard-not-editable:
+    enabled: true
+    severity: error
+
+  core.variable-current-empty:
+    enabled: true
+    severity: warning
+
+  core.panel-title-required:
+    enabled: true
+    severity: warning
+
+  core.panel-type-required:
+    enabled: true
+    severity: warning
+
+  core.panel-grid-position-required:
+    enabled: true
+    severity: warning
+
+  core.panel-grid-position-valid:
+    enabled: true
+    severity: error
+
+customRules:
+  custom.dashboard-timezone-known:
+    type: oneOf
+    severity: warning
+    path: $.timezone
+    values:
+      - browser
+      - utc
+      - ""
+    message: dashboard timezone should be browser, utc, or empty
+
+  custom.dashboard-title-team-prefix:
+    type: match
+    severity: info
+    path: $.title
+    pattern: "^[A-Za-z][A-Za-z0-9 _-]+: .+"
+    message: 'dashboard title should start with an ownership prefix, for example "Platform: API"'
+
+ignore:
+  - rule: core.panel-title-required
+    paths:
+      - dashboards/experimental/**
+    reason: Experimental dashboards are migrated gradually.
