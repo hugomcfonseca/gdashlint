@@ -1,0 +1,34 @@
+name: Bug report
+description: Report a reproducible problem
+title: "bug: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please provide enough detail for maintainers to reproduce it.
+  - type: input
+    id: version
+    attributes:
+      label: gdashlint version
+      description: Output of `gdashlint -version`, if available.
+      placeholder: v0.0.0
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include commands, minimal dashboard/config examples, and environment details.
+    validations:
+      required: true
