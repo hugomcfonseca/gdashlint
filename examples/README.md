@@ -2,7 +2,15 @@
 
 ## Custom rules
 
-[`custom-rules/gdashlint.yaml`](custom-rules/gdashlint.yaml) demonstrates user-defined rules that can be applied to plain Grafana dashboard JSON files.
+[`custom-rules/gdashlint.yaml`](custom-rules/gdashlint.yaml) demonstrates a practical configuration for plain Grafana dashboard JSON files.
+
+It includes:
+
+- Built-in rule severity overrides.
+- Built-in dashboard, refresh, variable, and panel quality rules with rule-specific options.
+- A custom allowed-timezone rule.
+- A custom dashboard title ownership-prefix rule.
+- An example path-based ignore.
 
 Run it against local dashboards:
 
@@ -13,22 +21,36 @@ go run ./cmd/gdashlint lint dashboards/ --config examples/custom-rules/gdashlint
 Run with JSON output:
 
 ```sh
-go run ./cmd/gdashlint lint dashboards/ --config examples/custom-rules/gdashlint.yaml --format json
+go run ./cmd/gdashlint lint dashboards/ \
+  --config examples/custom-rules/gdashlint.yaml \
+  --format json
 ```
 
 Run with GitHub Actions annotation output:
 
 ```sh
-go run ./cmd/gdashlint lint dashboards/ --config examples/custom-rules/gdashlint.yaml --format github
+go run ./cmd/gdashlint lint dashboards/ \
+  --config examples/custom-rules/gdashlint.yaml \
+  --format github
 ```
 
-The example config includes:
+Preview safe automatic remediations:
 
-- Built-in rule severity overrides.
-- Built-in dashboard, refresh, variable, and panel quality rules with rule-specific options.
-- A custom allowed-timezone rule.
-- A custom title naming convention.
-- An example path-based ignore.
+```sh
+go run ./cmd/gdashlint lint dashboards/ \
+  --config examples/custom-rules/gdashlint.yaml \
+  --fix \
+  --dry-run
+```
+
+Apply fixes to sibling files instead of modifying originals:
+
+```sh
+go run ./cmd/gdashlint lint dashboards/ \
+  --config examples/custom-rules/gdashlint.yaml \
+  --fix \
+  --fix-mode copy
+```
 
 ## Validating against public Grafana dashboards
 
@@ -56,3 +78,19 @@ Use `--fail-on none` when you want to inspect findings without returning a faili
   --format json \
   --fail-on none
 ```
+
+Preview remediations against the public dashboards:
+
+```sh
+/tmp/gdashlint-validation/gdashlint lint \
+  /tmp/gdashlint-validation/dashboards \
+  --config examples/custom-rules/gdashlint.yaml \
+  --fix \
+  --dry-run
+```
+
+Expected behavior:
+
+- Fixable findings are listed in the fix summary.
+- Remaining non-fixable findings are still reported.
+- With `--format json`, fix information is included in the `fixes` field.

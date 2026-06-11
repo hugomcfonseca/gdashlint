@@ -2,11 +2,11 @@
 
 `gdashlint` is a Go CLI for linting plain Grafana dashboard JSON files with built-in rules and config-defined custom rules.
 
-This document captures the intended architecture before the linting implementation is built.
+This document captures the current high-level architecture and the design boundaries for near-term development.
 
 ## Product scope
 
-The first fully functional version supports:
+The current implementation supports:
 
 - Plain Grafana dashboard JSON.
 - Inputs from files, directories, and stdin.

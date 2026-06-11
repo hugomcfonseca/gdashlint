@@ -1,35 +1,41 @@
 # Roadmap
 
-This roadmap is intentionally high-level and will evolve as the project design is refined.
+This roadmap tracks likely next steps after the first functional implementation.
 
-## Phase 0: Repository foundation
+## Completed foundation
 
 - Open-source community health files.
-- Minimal Go CLI scaffold.
-- CI and dependency automation.
+- Go CLI with Cobra.
+- Dashboard loading from files, directories, and stdin.
+- Built-in rules under the `core.*` namespace.
+- Config-defined custom rules.
+- YAML configuration discovery.
+- Text, JSON, and GitHub Actions annotation output.
+- Safe automatic remediations for selected rules.
+- CI, Dependabot, and tag-based GoReleaser releases.
 
-## Phase 1: Core design
+## Near-term improvements
 
-- Define dashboard input model and supported Grafana dashboard versions.
-- Define lint result schema and exit code behavior.
-- Define rule interfaces for built-in and custom rules.
-- Define configuration file format.
-- Capture decisions in [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`CONFIGURATION.md`](CONFIGURATION.md).
+- Add more focused built-in rules based on real dashboard usage.
+- Improve JSONPath support where needed by custom rules.
+- Add generated rule documentation from the live registry.
+- Add CI examples for using `--format github` in downstream dashboard repositories.
+- Add baseline support for adopting `gdashlint` on repositories with existing findings.
 
-## Phase 2: Built-in linting
+## Remediation improvements
 
-- Implement dashboard loading and validation.
-- Add the initial built-in rule set.
-- Add tests and fixtures for representative dashboards.
+- Add a diff preview mode for `--fix`.
+- Consider stdout-based remediation for stdin input.
+- Add more safe core remediations where behavior is unambiguous.
+- Explore declarative custom-rule remediations after the core remediation model stabilizes.
 
-## Phase 3: Extensibility
+## Future extensibility
 
-- Add custom rule loading strategy.
-- Document rule authoring and distribution.
-- Add examples for local and CI usage.
+- Evaluate external executable rules if config-defined rules are not expressive enough.
+- Revisit Terraform/provider dashboard definitions and Grafana provisioning YAML support.
+- Consider public Go APIs only after internal rule and dashboard models stabilize.
 
-## Phase 4: Releases
+## Releases and compatibility
 
-- Add release packaging.
-- Publish installation instructions.
-- Define version support and compatibility policy.
+- Publish the first release once the CLI surface is considered stable enough for early users.
+- Define compatibility expectations for JSON output, config schema, and rule IDs before a `v1.0.0` release.

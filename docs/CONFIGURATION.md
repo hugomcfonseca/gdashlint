@@ -1,8 +1,6 @@
-# Configuration Design
+# Configuration
 
-`gdashlint` uses optional YAML configuration.
-
-This document describes the intended first-version configuration model. Exact field names may evolve during implementation, but changes should preserve the same concepts.
+`gdashlint` uses optional YAML configuration for output preferences, failure thresholds, built-in rule overrides, config-defined custom rules, and ignores.
 
 ## Discovery
 
@@ -78,7 +76,7 @@ ignore:
 
 Configuration schema version.
 
-Initial value:
+Current value:
 
 ```yaml
 version: 1
@@ -184,7 +182,7 @@ Custom rule `path` values are validated when configuration is loaded. Invalid JS
 
 All config-defined custom rules should use stable namespaced IDs. The recommended namespace is `custom.*`.
 
-Initial custom rule types should be intentionally small and generic.
+Custom rule types are intentionally small and generic.
 
 #### `required`
 
@@ -242,7 +240,7 @@ customRules:
 
 ### `ignore`
 
-Suppresses findings by rule and path.
+Suppresses findings by rule, file path, and optional JSONPath.
 
 ```yaml
 ignore:
@@ -272,7 +270,7 @@ Precedence from highest to lowest:
 
 ## Dependency note
 
-YAML support requires a non-standard-library dependency. The chosen dependency is:
+YAML support is implemented with:
 
 ```text
 github.com/goccy/go-yaml

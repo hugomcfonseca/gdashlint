@@ -96,7 +96,7 @@ Empty objects and empty strings/arrays are allowed.
 
 ### Panel traversal
 
-Panel rules inspect top-level panels and nested row panels under `panels[*].panels[*]`.
+Panel rules inspect top-level panels and recursively nested panels under row-like `panels[*].panels[*]` structures.
 
 ### Grid position validation
 

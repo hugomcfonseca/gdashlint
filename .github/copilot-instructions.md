@@ -6,6 +6,6 @@ When suggesting changes:
 
 - Use idiomatic Go and keep public APIs small.
 - Do not add dashboard linting implementation details before the project design is established.
-- Prefer standard library packages for the CLI scaffold unless a dependency is requested.
+- Prefer existing project dependencies and standard library packages unless a new dependency is clearly justified.
 - Include tests for new behavior.
 - Keep GitHub Actions and repository metadata consistent with open-source best practices.
