@@ -12,6 +12,7 @@
 - Human-readable, JSON, and GitHub Actions annotation output.
 - Rule-specific options for supported built-in rules.
 - Safe `--fix` support for selected fixable rules.
+- Minimal Docker image for portable CI usage.
 - Cross-platform release packaging through GoReleaser.
 
 ## Status
@@ -28,10 +29,16 @@ cd gdashlint
 go build -o bin/gdashlint ./cmd/gdashlint
 ```
 
-After releases are available, download archives from GitHub Releases or install with Go:
+After releases are available, download archives from GitHub Releases, install with Go, or run the Docker image:
 
 ```sh
 go install github.com/hugomcfonseca/gdashlint/cmd/gdashlint@latest
+
+docker run --rm \
+  -v "$PWD:/work" \
+  -w /work \
+  docker.io/hugomcfonseca/gdashlint:latest \
+  lint dashboards/
 ```
 
 ## Quick start
@@ -198,6 +205,7 @@ go run ./cmd/gdashlint lint dashboards/
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - [`docs/BUILTIN_RULES.md`](docs/BUILTIN_RULES.md)
 - [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md)
+- [`docs/DOCKER.md`](docs/DOCKER.md)
 - [`docs/RELEASING.md`](docs/RELEASING.md)
 - [`docs/ROADMAP.md`](docs/ROADMAP.md)
 - [`examples/README.md`](examples/README.md)

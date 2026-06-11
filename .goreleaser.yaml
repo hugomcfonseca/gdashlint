@@ -49,6 +49,37 @@ archives:
 checksum:
   name_template: checksums.txt
 
+dockers_v2:
+  - id: gdashlint
+    ids:
+      - gdashlint
+    images:
+      - docker.io/hugomcfonseca/gdashlint
+    tags:
+      - "{{ .Tag }}"
+      - latest
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    dockerfile: Dockerfile
+    labels:
+      org.opencontainers.image.title: "{{ .ProjectName }}"
+      org.opencontainers.image.description: Grafana dashboard linter
+      org.opencontainers.image.url: https://github.com/hugomcfonseca/gdashlint
+      org.opencontainers.image.source: https://github.com/hugomcfonseca/gdashlint
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.created: "{{ .Date }}"
+    annotations:
+      org.opencontainers.image.title: "{{ .ProjectName }}"
+      org.opencontainers.image.description: Grafana dashboard linter
+      org.opencontainers.image.url: https://github.com/hugomcfonseca/gdashlint
+      org.opencontainers.image.source: https://github.com/hugomcfonseca/gdashlint
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.created: "{{ .Date }}"
+    sbom: false
+
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
 

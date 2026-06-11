@@ -33,8 +33,10 @@ The tag push triggers the GoReleaser workflow, which will:
 
 1. Check out the release tag.
 2. Run tests.
-3. Run GoReleaser.
-4. Publish release artifacts to GitHub Releases.
+3. Set up QEMU and Docker Buildx for multi-platform image publishing.
+4. Log in to Docker Hub.
+5. Run GoReleaser.
+6. Publish release artifacts to GitHub Releases and Docker Hub.
 
 ## Version calculation options
 
@@ -90,3 +92,19 @@ GoReleaser builds archives for:
 - Windows amd64/arm64
 
 Each release includes checksums in `checksums.txt`.
+
+GoReleaser also publishes Docker images to Docker Hub:
+
+- `docker.io/hugomcfonseca/gdashlint:<tag>` such as `v0.1.0`
+- `docker.io/hugomcfonseca/gdashlint:latest`
+
+Both tags are multi-platform images for Linux amd64 and arm64.
+
+## Docker Hub credentials
+
+The release workflow requires these repository secrets:
+
+- `DOCKERHUB_USERNAME`: Docker Hub username.
+- `DOCKERHUB_TOKEN`: Docker Hub access token with permission to push `hugomcfonseca/gdashlint`.
+
+If either secret is missing or invalid, the release workflow will fail before GoReleaser publishes artifacts.

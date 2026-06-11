@@ -12,6 +12,7 @@ This roadmap tracks likely next steps after the first functional implementation.
 - YAML configuration discovery.
 - Text, JSON, and GitHub Actions annotation output.
 - Safe automatic remediations for selected rules.
+- Minimal Docker image for portable CI usage.
 - CI, Dependabot, and tag-based GoReleaser releases.
 
 ## Near-term improvements

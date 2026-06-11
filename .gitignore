@@ -3,6 +3,8 @@
 /dist/
 *.test
 *.out
+gdashlint
+/linux/
 
 # Coverage
 coverage.txt
