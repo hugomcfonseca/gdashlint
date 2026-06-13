@@ -1,0 +1,43 @@
+{
+  "title": "Dashboard 084",
+  "uid": "dash-084",
+  "tags": [
+    "team-1",
+    "env-staging"
+  ],
+  "editable": true,
+  "refresh": "1m",
+  "panels": [
+    {
+      "title": "Panel 84A",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "title": "Panel 84B",
+      "type": "stat",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      }
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "env",
+        "current": {
+          "text": "prod",
+          "value": "prod"
+        }
+      }
+    ]
+  }
+}

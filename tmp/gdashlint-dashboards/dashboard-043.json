@@ -1,0 +1,43 @@
+{
+  "title": "Dashboard 043",
+  "uid": "dash-043",
+  "tags": [
+    "team-2",
+    "env-prod"
+  ],
+  "editable": false,
+  "refresh": "1m",
+  "panels": [
+    {
+      "title": "Panel 43A",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "title": "Panel 43B",
+      "type": "stat",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      }
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "env",
+        "current": {
+          "text": "prod",
+          "value": "prod"
+        }
+      }
+    ]
+  }
+}

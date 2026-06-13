@@ -1,0 +1,224 @@
+version: 1
+failOn: error
+output:
+  format: text
+  sort: severity
+customRules:
+  dashboard-title-required-01:
+    type: required
+    severity: error
+    path: $.title
+    message: dashboard title is required
+    fix:
+      setValue: Generated Dashboard
+  dashboard-title-required-02:
+    type: required
+    severity: error
+    path: $.title
+    message: dashboard title is required
+  dashboard-uid-required-01:
+    type: required
+    severity: error
+    path: $.uid
+    message: dashboard uid is required
+    fix:
+      setValue: generated-uid
+  dashboard-uid-required-02:
+    type: required
+    severity: error
+    path: $.uid
+    message: dashboard uid is required
+  dashboard-tags-required-01:
+    type: required
+    severity: warning
+    path: $.tags[0]
+    message: dashboard should contain at least one tag
+  dashboard-tags-required-02:
+    type: required
+    severity: warning
+    path: $.tags[1]
+    message: dashboard should contain at least two tags
+  dashboard-editable-forbidden-01:
+    type: forbidden
+    severity: warning
+    path: $.editable
+    message: dashboard should not be editable
+    fix:
+      setValue: false
+  dashboard-editable-forbidden-02:
+    type: forbidden
+    severity: warning
+    path: $.editable
+    message: dashboard should not be editable
+  dashboard-refresh-match-01:
+    type: match
+    severity: warning
+    path: $.refresh
+    pattern: "^(1m|30s)$"
+    message: dashboard refresh should be 1m or 30s
+  dashboard-refresh-match-02:
+    type: match
+    severity: warning
+    path: $.refresh
+    pattern: "^(1m|30s)$"
+    message: dashboard refresh should be 1m or 30s
+  dashboard-refresh-oneof-01:
+    type: oneOf
+    severity: warning
+    path: $.refresh
+    values: ["1m", "30s"]
+    message: dashboard refresh should be 1m or 30s
+    fix:
+      setValue: 1m
+  dashboard-refresh-oneof-02:
+    type: oneOf
+    severity: warning
+    path: $.refresh
+    values: ["1m", "30s"]
+    message: dashboard refresh should be 1m or 30s
+  templating-env-required-01:
+    type: required
+    severity: warning
+    path: $.templating.list[0].name
+    message: first templating variable name is required
+    fix:
+      setValue: env
+  templating-env-required-02:
+    type: required
+    severity: warning
+    path: $.templating.list[0].current.value
+    message: first templating variable current value is required
+  templating-env-match-01:
+    type: match
+    severity: warning
+    path: $.templating.list[0].name
+    pattern: "^env$"
+    message: first templating variable should be env
+  templating-env-match-02:
+    type: match
+    severity: warning
+    path: $.templating.list[0].current.value
+    pattern: "^(prod|staging)$"
+    message: templating env should be prod or staging
+  panel-title-required-01:
+    type: required
+    severity: error
+    path: $.panels[0].title
+    message: first panel title is required
+    fix:
+      setValue: Panel A
+  panel-title-required-02:
+    type: required
+    severity: error
+    path: $.panels[1].title
+    message: second panel title is required
+  panel-title-required-03:
+    type: required
+    severity: error
+    path: $.panels[0].title
+    message: first panel title is required
+  panel-title-required-04:
+    type: required
+    severity: error
+    path: $.panels[1].title
+    message: second panel title is required
+  panel-type-required-01:
+    type: required
+    severity: error
+    path: $.panels[0].type
+    message: first panel type is required
+    fix:
+      setValue: timeseries
+  panel-type-required-02:
+    type: required
+    severity: error
+    path: $.panels[1].type
+    message: second panel type is required
+  panel-type-required-03:
+    type: required
+    severity: error
+    path: $.panels[0].type
+    message: first panel type is required
+  panel-type-required-04:
+    type: required
+    severity: error
+    path: $.panels[1].type
+    message: second panel type is required
+  panel-gridpos-required-01:
+    type: required
+    severity: error
+    path: $.panels[0].gridPos
+    message: first panel grid position is required
+    fix:
+      setValue:
+        h: 8
+        w: 12
+        x: 0
+        y: 0
+  panel-gridpos-required-02:
+    type: required
+    severity: error
+    path: $.panels[1].gridPos
+    message: second panel grid position is required
+  panel-gridpos-required-03:
+    type: required
+    severity: error
+    path: $.panels[0].gridPos
+    message: first panel grid position is required
+  panel-gridpos-required-04:
+    type: required
+    severity: error
+    path: $.panels[1].gridPos
+    message: second panel grid position is required
+  panel-gridpos-x-match-01:
+    type: match
+    severity: warning
+    path: $.panels[0].gridPos.x
+    pattern: "^0$"
+    message: first panel x should be 0
+    fix:
+      setValue: 0
+  panel-gridpos-x-match-02:
+    type: match
+    severity: warning
+    path: $.panels[1].gridPos.x
+    pattern: "^12$"
+    message: second panel x should be 12
+  panel-gridpos-y-match-01:
+    type: match
+    severity: warning
+    path: $.panels[0].gridPos.y
+    pattern: "^0$"
+    message: first panel y should be 0
+  panel-gridpos-y-match-02:
+    type: match
+    severity: warning
+    path: $.panels[1].gridPos.y
+    pattern: "^0$"
+    message: second panel y should be 0
+  panel-gridpos-w-oneof-01:
+    type: oneOf
+    severity: warning
+    path: $.panels[0].gridPos.w
+    values: [12, 24]
+    message: first panel width should be 12 or 24
+    fix:
+      setValue: 12
+  panel-gridpos-w-oneof-02:
+    type: oneOf
+    severity: warning
+    path: $.panels[1].gridPos.w
+    values: [12, 24]
+    message: second panel width should be 12 or 24
+  panel-gridpos-h-oneof-01:
+    type: oneOf
+    severity: warning
+    path: $.panels[0].gridPos.h
+    values: [8]
+    message: first panel height should be 8
+  panel-gridpos-h-oneof-02:
+    type: oneOf
+    severity: warning
+    path: $.panels[1].gridPos.h
+    values: [8]
+    message: second panel height should be 8
