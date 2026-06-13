@@ -7,10 +7,19 @@ run:
 linters:
   default: none
   enable:
+    # Error checking
     - errcheck
+    - bodyclose        # HTTP response bodies must be closed
+    - nolintlint       # Validate //nolint directives are necessary
+
+    # Code quality
     - govet
     - ineffassign
     - unused
+    - unconvert        # Remove unnecessary type conversions
+    - unparam          # Find unused function parameters
+    - prealloc         # Preallocate slices for better performance
+    - revive           # Extensible linter with comprehensive rules
 
 issues:
   max-issues-per-linter: 0
