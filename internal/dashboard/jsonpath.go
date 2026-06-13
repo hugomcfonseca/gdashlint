@@ -13,30 +13,54 @@ type pathToken struct {
 	isIndex  bool
 }
 
+// CompiledPath is a parsed JSONPath-like path that can be evaluated repeatedly.
+type CompiledPath struct {
+	tokens []pathToken
+}
+
+// CompilePath validates and compiles a supported JSONPath-like path for reuse.
+func CompilePath(path string) (CompiledPath, error) {
+	tokens, err := parsePath(path)
+	if err != nil {
+		return CompiledPath{}, err
+	}
+	return CompiledPath{tokens: tokens}, nil
+}
+
 // ValidatePath validates a supported JSONPath-like path without evaluating it.
 func ValidatePath(path string) error {
-	_, err := parsePath(path)
+	_, err := CompilePath(path)
 	return err
 }
 
 // Exists reports whether at least one value exists at path.
 func Exists(root any, path string) (bool, error) {
-	values, err := Values(root, path)
+	compiled, err := CompilePath(path)
 	if err != nil {
 		return false, err
 	}
-	return len(values) > 0, nil
+	return compiled.Exists(root), nil
 }
 
 // Values returns all values matching a simple JSONPath-like path.
 // Supported syntax: $.field, $.field.nested, $.array[0], $.array[*].field.
 func Values(root any, path string) ([]any, error) {
-	tokens, err := parsePath(path)
+	compiled, err := CompilePath(path)
 	if err != nil {
 		return nil, err
 	}
+	return compiled.Values(root), nil
+}
+
+// Exists reports whether at least one value exists at the compiled path.
+func (p CompiledPath) Exists(root any) bool {
+	return len(p.Values(root)) > 0
+}
+
+// Values returns all values matching the compiled path.
+func (p CompiledPath) Values(root any) []any {
 	current := []any{root}
-	for _, token := range tokens {
+	for _, token := range p.tokens {
 		next := make([]any, 0)
 		for _, value := range current {
 			matches := applyToken(value, token)
@@ -44,10 +68,10 @@ func Values(root any, path string) ([]any, error) {
 		}
 		current = next
 		if len(current) == 0 {
-			return nil, nil
+			return nil
 		}
 	}
-	return current, nil
+	return current
 }
 
 func parsePath(path string) ([]pathToken, error) {

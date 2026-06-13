@@ -1,6 +1,7 @@
 package configrules
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -14,17 +15,14 @@ import (
 type requiredRule struct {
 	metadata rule.Metadata
 	path     string
+	compiled dashboard.CompiledPath
 	message  string
 }
 
 func (r requiredRule) Metadata() rule.Metadata { return r.metadata }
 
 func (r requiredRule) Check(_ context.Context, dash dashboard.Dashboard) ([]rule.Finding, error) {
-	exists, err := dashboard.Exists(dash.Root, r.path)
-	if err != nil {
-		return nil, err
-	}
-	if exists {
+	if r.compiled.Exists(dash.Root) {
 		return nil, nil
 	}
 	return []rule.Finding{r.finding()}, nil
@@ -37,17 +35,14 @@ func (r requiredRule) finding() rule.Finding {
 type forbiddenRule struct {
 	metadata rule.Metadata
 	path     string
+	compiled dashboard.CompiledPath
 	message  string
 }
 
 func (r forbiddenRule) Metadata() rule.Metadata { return r.metadata }
 
 func (r forbiddenRule) Check(_ context.Context, dash dashboard.Dashboard) ([]rule.Finding, error) {
-	exists, err := dashboard.Exists(dash.Root, r.path)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
+	if !r.compiled.Exists(dash.Root) {
 		return nil, nil
 	}
 	return []rule.Finding{{RuleID: r.metadata.ID, Severity: r.metadata.Severity, Message: r.message, Path: r.path}}, nil
@@ -56,11 +51,12 @@ func (r forbiddenRule) Check(_ context.Context, dash dashboard.Dashboard) ([]rul
 type matchRule struct {
 	metadata rule.Metadata
 	path     string
+	compiled dashboard.CompiledPath
 	pattern  *regexp.Regexp
 	message  string
 }
 
-func newMatchRule(metadata rule.Metadata, cfg appconfig.CustomRule) (rule.Rule, error) {
+func newMatchRule(metadata rule.Metadata, cfg appconfig.CustomRule, compiled dashboard.CompiledPath) (rule.Rule, error) {
 	if cfg.Pattern == "" {
 		return nil, fmt.Errorf("custom rule %s: pattern is required", metadata.ID)
 	}
@@ -68,16 +64,13 @@ func newMatchRule(metadata rule.Metadata, cfg appconfig.CustomRule) (rule.Rule, 
 	if err != nil {
 		return nil, fmt.Errorf("custom rule %s: invalid pattern: %w", metadata.ID, err)
 	}
-	return matchRule{metadata: metadata, path: cfg.Path, pattern: pattern, message: messageOrDefault(cfg.Message, fmt.Sprintf("%s must match %s", cfg.Path, cfg.Pattern))}, nil
+	return matchRule{metadata: metadata, path: cfg.Path, compiled: compiled, pattern: pattern, message: messageOrDefault(cfg.Message, fmt.Sprintf("%s must match %s", cfg.Path, cfg.Pattern))}, nil
 }
 
 func (r matchRule) Metadata() rule.Metadata { return r.metadata }
 
 func (r matchRule) Check(_ context.Context, dash dashboard.Dashboard) ([]rule.Finding, error) {
-	values, err := dashboard.Values(dash.Root, r.path)
-	if err != nil {
-		return nil, err
-	}
+	values := r.compiled.Values(dash.Root)
 	if len(values) == 0 {
 		return nil, nil
 	}
@@ -92,38 +85,47 @@ func (r matchRule) Check(_ context.Context, dash dashboard.Dashboard) ([]rule.Fi
 }
 
 type oneOfRule struct {
-	metadata rule.Metadata
-	path     string
-	values   []any
-	message  string
+	metadata      rule.Metadata
+	path          string
+	compiled      dashboard.CompiledPath
+	encodedValues [][]byte
+	message       string
+}
+
+func newOneOfRule(metadata rule.Metadata, cfg appconfig.CustomRule, compiled dashboard.CompiledPath) (rule.Rule, error) {
+	encodedValues := make([][]byte, 0, len(cfg.Values))
+	for _, value := range cfg.Values {
+		encoded, err := json.Marshal(value)
+		if err != nil {
+			return nil, fmt.Errorf("custom rule %s: encode allowed value: %w", metadata.ID, err)
+		}
+		encodedValues = append(encodedValues, encoded)
+	}
+	return oneOfRule{metadata: metadata, path: cfg.Path, compiled: compiled, encodedValues: encodedValues, message: messageOrDefault(cfg.Message, fmt.Sprintf("%s must be one of the allowed values", cfg.Path))}, nil
 }
 
 func (r oneOfRule) Metadata() rule.Metadata { return r.metadata }
 
 func (r oneOfRule) Check(_ context.Context, dash dashboard.Dashboard) ([]rule.Finding, error) {
-	values, err := dashboard.Values(dash.Root, r.path)
-	if err != nil {
-		return nil, err
-	}
+	values := r.compiled.Values(dash.Root)
 	if len(values) == 0 {
 		return nil, nil
 	}
 	for _, value := range values {
-		if !containsJSONEqual(r.values, value) {
+		if !containsJSONEqual(r.encodedValues, value) {
 			return []rule.Finding{{RuleID: r.metadata.ID, Severity: r.metadata.Severity, Message: r.message, Path: r.path}}, nil
 		}
 	}
 	return nil, nil
 }
 
-func containsJSONEqual(allowed []any, value any) bool {
-	valueJSON, err := json.Marshal(value)
+func containsJSONEqual(encodedAllowed [][]byte, value any) bool {
+	encodedValue, err := json.Marshal(value)
 	if err != nil {
 		return false
 	}
-	for _, allowedValue := range allowed {
-		allowedJSON, err := json.Marshal(allowedValue)
-		if err == nil && string(allowedJSON) == string(valueJSON) {
+	for _, encodedAllowedValue := range encodedAllowed {
+		if bytes.Equal(encodedAllowedValue, encodedValue) {
 			return true
 		}
 	}

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	appconfig "github.com/hugomcfonseca/gdashlint/internal/config"
+	"github.com/hugomcfonseca/gdashlint/internal/dashboard"
 	"github.com/hugomcfonseca/gdashlint/internal/rule"
 )
 
@@ -42,16 +43,20 @@ func New(id string, cfg appconfig.CustomRule) (rule.Rule, error) {
 		Severity:    severity,
 		Source:      rule.SourceConfig,
 	}
+	compiledPath, err := dashboard.CompilePath(cfg.Path)
+	if err != nil {
+		return nil, fmt.Errorf("custom rule %s: invalid path: %w", id, err)
+	}
 
 	switch cfg.Type {
 	case "required":
-		return requiredRule{metadata: metadata, path: cfg.Path, message: messageOrDefault(cfg.Message, fmt.Sprintf("%s is required", cfg.Path))}, nil
+		return requiredRule{metadata: metadata, path: cfg.Path, compiled: compiledPath, message: messageOrDefault(cfg.Message, fmt.Sprintf("%s is required", cfg.Path))}, nil
 	case "forbidden":
-		return forbiddenRule{metadata: metadata, path: cfg.Path, message: messageOrDefault(cfg.Message, fmt.Sprintf("%s is forbidden", cfg.Path))}, nil
+		return forbiddenRule{metadata: metadata, path: cfg.Path, compiled: compiledPath, message: messageOrDefault(cfg.Message, fmt.Sprintf("%s is forbidden", cfg.Path))}, nil
 	case "match":
-		return newMatchRule(metadata, cfg)
+		return newMatchRule(metadata, cfg, compiledPath)
 	case "oneOf":
-		return oneOfRule{metadata: metadata, path: cfg.Path, values: cfg.Values, message: messageOrDefault(cfg.Message, fmt.Sprintf("%s must be one of the allowed values", cfg.Path))}, nil
+		return newOneOfRule(metadata, cfg, compiledPath)
 	default:
 		return nil, fmt.Errorf("custom rule %s: unsupported type %q", id, cfg.Type)
 	}

@@ -35,7 +35,13 @@ func (r Runner) Run(ctx context.Context, dashboards []dashboard.Dashboard) (Resu
 	result.Summary.Files = len(dashboards)
 
 	for _, dash := range dashboards {
+		if err := ctx.Err(); err != nil {
+			return Result{}, err
+		}
 		for _, lintRule := range r.Rules {
+			if err := ctx.Err(); err != nil {
+				return Result{}, err
+			}
 			metadata := lintRule.Metadata()
 			findings, err := lintRule.Check(ctx, dash)
 			if err != nil {

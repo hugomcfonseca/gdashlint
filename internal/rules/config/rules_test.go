@@ -46,3 +46,30 @@ func TestMatchRule(t *testing.T) {
 		t.Fatalf("expected finding, got %#v", findings)
 	}
 }
+
+func TestOneOfRule(t *testing.T) {
+	lintRule, err := New("custom.timezone", appconfig.CustomRule{
+		Type:   "oneOf",
+		Path:   "$.timezone",
+		Values: []any{"browser", "utc"},
+	})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+
+	findings, err := lintRule.Check(context.Background(), dashboard.Dashboard{Root: map[string]any{"timezone": "local"}})
+	if err != nil {
+		t.Fatalf("Check returned error: %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("expected finding, got %#v", findings)
+	}
+
+	findings, err = lintRule.Check(context.Background(), dashboard.Dashboard{Root: map[string]any{"timezone": "utc"}})
+	if err != nil {
+		t.Fatalf("Check returned error: %v", err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("expected no findings, got %#v", findings)
+	}
+}

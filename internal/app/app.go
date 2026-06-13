@@ -184,8 +184,9 @@ func buildRegistry(cfg config.Config) (*rule.Registry, error) {
 }
 
 func enabledRules(registry *rule.Registry, cfg config.Config) ([]rule.Rule, error) {
-	known := make(map[string]bool)
-	for _, lintRule := range registry.All() {
+	allRules := registry.All()
+	known := make(map[string]bool, len(allRules))
+	for _, lintRule := range allRules {
 		known[lintRule.Metadata().ID] = true
 	}
 	for id := range cfg.Rules {
@@ -194,8 +195,8 @@ func enabledRules(registry *rule.Registry, cfg config.Config) ([]rule.Rule, erro
 		}
 	}
 
-	var rules []rule.Rule
-	for _, lintRule := range registry.All() {
+	rules := make([]rule.Rule, 0, len(allRules))
+	for _, lintRule := range allRules {
 		metadata := lintRule.Metadata()
 		override, ok := cfg.Rules[metadata.ID]
 		if ok && override.Enabled != nil && !*override.Enabled {
@@ -283,10 +284,16 @@ func validateFixOptions(opts Options, dashboards []dashboard.Dashboard) error {
 func applyFixes(ctx context.Context, rules []rule.Rule, dashboards []dashboard.Dashboard, opts Options) ([]rule.Fix, error) {
 	allFixes := make([]rule.Fix, 0)
 	for index := range dashboards {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		dash := &dashboards[index]
 
 		fileFixes := make([]rule.Fix, 0)
 		for _, lintRule := range rules {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
 			fixable, ok := lintRule.(rule.FixableRule)
 			if !ok {
 				continue
