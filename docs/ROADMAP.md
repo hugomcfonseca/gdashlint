@@ -1,19 +1,19 @@
 # Roadmap
 
-This roadmap tracks likely next steps after the first functional implementation.
+This roadmap tracks likely next steps after the current pre-1.0 implementation.
 
 ## Completed foundation
 
 - Open-source community health files.
 - Go CLI with Cobra.
-- Dashboard loading from files, directories, and stdin.
+- Dashboard loading from files, directories, and stdin for linting.
+- Dedicated `fix` command for safe automatic remediations.
 - Built-in rules under the `core.*` namespace.
 - Config-defined custom rules.
 - YAML configuration discovery.
 - Text, JSON, and GitHub Actions annotation output.
-- Safe automatic remediations for selected rules.
 - Minimal Docker image for portable CI usage.
-- CI, Dependabot, and tag-based GoReleaser releases.
+- CI, Dependabot, static analysis, security checks, and tag-based GoReleaser releases.
 
 ## Near-term improvements
 
@@ -38,5 +38,5 @@ This roadmap tracks likely next steps after the first functional implementation.
 
 ## Releases and compatibility
 
-- Publish the first release once the CLI surface is considered stable enough for early users.
-- Define compatibility expectations for JSON output, config schema, and rule IDs before a `v1.0.0` release.
+- Continue validating release artifacts and Docker image publishing on early pre-1.0 releases.
+- Define compatibility expectations for JSON output, config schema, rule IDs, and fix behavior before a `v1.0.0` release.

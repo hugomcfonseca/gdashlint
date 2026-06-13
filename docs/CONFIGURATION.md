@@ -180,7 +180,9 @@ Config-defined custom rules.
 
 Custom rule `path` values are validated when configuration is loaded. Invalid JSONPath-like expressions fail fast before any dashboard is linted.
 
-All config-defined custom rules should use stable namespaced IDs. The recommended namespace is `custom.*`.
+All config-defined custom rules should use stable namespaced IDs. The recommended namespace is `custom.*`. If a custom rule ID does not contain a dot, `gdashlint` prefixes it with `custom.` when registering the rule.
+
+If `severity` is omitted, custom rules default to `warning`. If `message` is omitted, `gdashlint` generates a rule-type-specific message.
 
 Custom rule types are intentionally small and generic.
 
@@ -212,7 +214,7 @@ customRules:
 
 #### `oneOf`
 
-Requires a value to be one of an allowed set.
+Requires a value to be one of an allowed set. Configure allowed values with `values`.
 
 ```yaml
 customRules:
@@ -226,7 +228,7 @@ customRules:
 
 #### `match`
 
-Requires a string value to match a regular expression.
+Requires a string value to match a regular expression. The `pattern` field is required.
 
 ```yaml
 customRules:
@@ -237,6 +239,34 @@ customRules:
     pattern: "^([A-Z][A-Za-z0-9]+): .+"
     message: dashboard title should start with an owning area prefix
 ```
+
+### JSONPath-like syntax
+
+Custom rule `path` values and ignore `jsonPaths` use a small JSONPath-like subset.
+
+Supported examples:
+
+```text
+$
+$.title
+$.templating.list[*].current
+$.panels[0].title
+$.panels[*].gridPos
+```
+
+Supported syntax:
+
+- `$` for the root document.
+- Dot-separated object fields, for example `$.templating.list`.
+- Zero-based array indexes, for example `$.panels[0]`.
+- Array wildcards, for example `$.panels[*].title`.
+
+Not supported:
+
+- Recursive descent such as `$..title`.
+- Filters such as `$.panels[?(@.type=="row")]`.
+- Slices such as `$.tags[0:2]`.
+- Quoted field selectors such as `$["title"]`.
 
 ### `ignore`
 
@@ -253,11 +283,11 @@ ignore:
 Supported fields:
 
 - `rule`: required rule ID.
-- `paths`: file path glob list.
-- `jsonPaths`: optional JSONPath-like path list. Values are validated when configuration is loaded.
+- `paths`: optional file path glob list.
+- `jsonPaths`: optional JSONPath-like finding path list. Values are validated when configuration is loaded.
 - `reason`: optional human-readable explanation.
 
-Ignored findings do not affect output summary failure counts or exit code.
+An ignore entry must include at least one `paths` or `jsonPaths` value. When both are present, both dimensions must match: the finding file must match one of the path globs, and the finding JSON path must match one of the configured JSON paths. Ignored findings do not affect output summary failure counts or exit code.
 
 ## CLI override precedence
 

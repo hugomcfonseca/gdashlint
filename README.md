@@ -1,5 +1,10 @@
 # gdashlint
 
+[![CI](https://img.shields.io/github/actions/workflow/status/hugomcfonseca/gdashlint/ci.yml?branch=main&label=ci)](https://github.com/hugomcfonseca/gdashlint/actions/workflows/ci.yml)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/hugomcfonseca/gdashlint)](https://go.dev/)
+[![Latest Release](https://img.shields.io/github/v/release/hugomcfonseca/gdashlint)](https://github.com/hugomcfonseca/gdashlint/releases)
+[![License](https://img.shields.io/github/license/hugomcfonseca/gdashlint)](LICENSE)
+
 `gdashlint` is a Go CLI for linting plain Grafana dashboard JSON files with built-in rules, YAML-defined custom rules, CI-friendly output formats, and safe automatic remediations for selected issues.
 
 ## Features
@@ -7,7 +12,7 @@
 - Lint Grafana dashboard JSON from files, directories, or stdin.
 - Built-in `core.*` rules for dashboard hygiene, refresh intervals, editability, variables, and panel layout.
 - YAML configuration with automatic discovery.
-- Config-defined custom rules for common JSONPath-based checks.
+- Config-defined custom rules for common JSONPath-like checks.
 - Per-path and per-JSONPath ignores.
 - Human-readable, JSON, and GitHub Actions annotation output.
 - Rule-specific options for supported built-in rules.
@@ -17,28 +22,34 @@
 
 ## Status
 
-The project has a functional first implementation. It supports plain Grafana dashboard JSON only. Terraform/provider dashboard definitions, Grafana provisioning YAML, and external executable/plugin rules are intentionally out of scope for now.
+The project is in an early pre-1.0 release phase. It supports plain Grafana dashboard JSON only. Terraform/provider dashboard definitions, Grafana provisioning YAML, and external executable/plugin rules are intentionally out of scope for now.
 
 ## Install
 
-Until the first GitHub release is published, build from source:
-
-```sh
-git clone git@github.com:hugomcfonseca/gdashlint.git
-cd gdashlint
-go build -o bin/gdashlint ./cmd/gdashlint
-```
-
-After releases are available, download archives from GitHub Releases, install with Go, or run the Docker image:
+Install the latest released CLI with Go:
 
 ```sh
 go install github.com/hugomcfonseca/gdashlint/cmd/gdashlint@latest
+```
 
+Or run the Docker image:
+
+```sh
 docker run --rm \
   -v "$PWD:/work" \
   -w /work \
   docker.io/hugomcfonseca/gdashlint:latest \
   lint dashboards/
+```
+
+Pre-built archives are available from [GitHub Releases](https://github.com/hugomcfonseca/gdashlint/releases).
+
+To build from source:
+
+```sh
+git clone git@github.com:hugomcfonseca/gdashlint.git
+cd gdashlint
+go build -o bin/gdashlint ./cmd/gdashlint
 ```
 
 ## Quick start
@@ -72,6 +83,15 @@ Print version information:
 
 ```sh
 gdashlint --version
+```
+
+Example text output:
+
+```text
+error   manual  core.dashboard-title-required       $.title                  dashboards/api.json              dashboard title is required
+warning manual  core.panel-title-required           $.panels[0].title        dashboards/api.json              panel title is required
+
+Found 2 finding(s) in 1 dashboard(s): 1 error(s), 1 warning(s), 0 info(s).
 ```
 
 ## Configuration
@@ -205,6 +225,7 @@ go run ./cmd/gdashlint fix dashboards/ --dry-run
 
 ## Documentation
 
+- [`docs/CLI.md`](docs/CLI.md)
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - [`docs/BUILTIN_RULES.md`](docs/BUILTIN_RULES.md)
 - [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md)

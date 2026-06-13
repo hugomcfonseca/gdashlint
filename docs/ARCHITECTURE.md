@@ -2,22 +2,24 @@
 
 `gdashlint` is a Go CLI for linting plain Grafana dashboard JSON files with built-in rules and config-defined custom rules.
 
-This document captures the current high-level architecture and the design boundaries for near-term development.
+This document describes the current implementation boundaries and the constraints that should guide near-term changes.
 
 ## Product scope
 
 The current implementation supports:
 
 - Plain Grafana dashboard JSON.
-- Inputs from files, directories, and stdin.
-- Built-in rules.
-- YAML configuration.
+- Inputs from files, directories, and stdin for linting.
+- File-backed inputs for automatic remediation.
+- Built-in rules under the `core.*` namespace.
+- YAML configuration with upward discovery.
 - Config-defined custom rules.
-- Per-path ignores and suppressions.
-- Human-readable and machine-readable output.
+- Per-path and per-JSONPath ignores.
+- Human-readable text output, JSON output, and GitHub Actions annotations.
 - CI-friendly exit codes with configurable failure threshold.
+- Safe automatic remediations for selected built-in rules.
 
-Out of scope for the first functional version:
+Out of scope for the current implementation:
 
 - Terraform/provider dashboard definitions.
 - Grafana provisioning YAML.
@@ -37,21 +39,11 @@ gdashlint fix [paths...] [flags]
 gdashlint rules [flags]
 ```
 
+Cobra also exposes shell completion generation through `gdashlint completion`.
+
 ### `gdashlint lint`
 
 Runs enabled rules against one or more dashboards.
-
-Initial flags:
-
-```sh
---config path              Path to config file. If omitted, auto-discover config.
---format text|json|github  Output format. Default: text.
---sort severity|file       Finding sort/group mode. Default: severity.
---fail-on error|warning|info|none
-                           Minimum severity that returns exit code 1. Default: error.
-```
-
-Inputs:
 
 ```sh
 gdashlint lint dashboard.json
@@ -60,40 +52,27 @@ gdashlint lint dashboard.json dashboards/ -
 cat dashboard.json | gdashlint lint -
 ```
 
-Input rules:
-
-- File paths are parsed as single dashboard JSON files.
-- Directory paths are walked recursively.
-- Directory traversal initially includes files ending in `.json`.
-- `-` reads one dashboard JSON document from stdin.
-- Missing paths, invalid JSON, and unreadable files are runtime errors.
+File paths are parsed as single dashboard JSON files. Directory paths are walked recursively and include files ending in `.json`. `-` reads one dashboard JSON document from stdin.
 
 ### `gdashlint fix`
 
 Applies safe automatic remediations for fixable rules and reports remaining findings after fixes.
 
 ```sh
---config path              Path to config file. If omitted, auto-discover config.
---format text|json|github  Output format. Default: text.
---sort severity|file       Finding sort/group mode. Default: severity.
---fail-on error|warning|info|none
-                           Minimum severity that returns exit code 1. Default: error.
---mode in-place|copy       Write fixed dashboards in place or to sibling files.
---suffix .fixed            Suffix used before .json in copy mode.
---dry-run                  Simulate remediations without writing files.
+gdashlint fix dashboards/
+gdashlint fix dashboards/ --dry-run
+gdashlint fix dashboards/ --mode copy
 ```
 
 `fix` currently requires file-backed dashboard inputs and does not support stdin.
 
 ### `gdashlint rules`
 
-Lists available built-in and config-defined rules.
-
-The command should be useful for discovery and CI debugging. JSON output can be added through the shared `--format` behavior if useful.
+Lists available built-in and config-defined rules. Text output is intended for human discovery; JSON output is intended for scripting and documentation generation.
 
 ### `gdashlint --version`
 
-Prints build metadata and exits.
+Prints build metadata injected by release tooling and exits.
 
 ## Exit codes
 
@@ -114,24 +93,27 @@ cmd/gdashlint/
   main.go
 
 internal/cli/
-  cli.go              # command parsing, flags, help text
+  cli.go              # command parsing, flags, help text, process exit mapping
 
 internal/app/
-  app.go              # wires config, loaders, registry, runner, output
+  app.go              # high-level orchestration for lint, fix, and rules commands
 
 internal/config/
   config.go           # config schema, defaults, validation
   discover.go         # upward config discovery
+  ignore.go           # suppression filtering
 
 internal/dashboard/
   dashboard.go        # dashboard document representation
   loader.go           # files, directories, stdin
-  jsonpath.go         # JSON path helpers, if needed
+  jsonpath.go         # supported JSONPath-like helper
+  write.go            # safe fixed-dashboard writes and copy path helpers
 
 internal/rule/
-  finding.go          # finding, location, severity
-  rule.go             # rule interfaces
+  finding.go          # finding model
+  rule.go             # rule interfaces and fix model
   registry.go         # rule registration and lookup
+  severity.go         # severity parsing and ordering
 
 internal/rules/builtin/
   registry.go         # built-in rule set
@@ -139,35 +121,38 @@ internal/rules/builtin/
 
 internal/rules/config/
   registry.go         # config-defined rule construction
-  ...                 # generic configurable rule implementations
+  rules.go            # generic configurable rule implementations
 
 internal/lint/
   runner.go           # applies rules to dashboards and collects findings
 
 internal/output/
-  text.go             # human output
-  json.go             # machine output
+  text.go             # human lint output
+  json.go             # machine lint output
+  github.go           # GitHub Actions annotations
+  fix.go              # text fix summaries
+  rules.go            # rule metadata output
   sort.go             # severity/file ordering
 ```
 
 Package responsibilities:
 
 - `cmd/gdashlint`: process entrypoint only.
-- `internal/cli`: command syntax and flag parsing; no linting logic.
-- `internal/app`: high-level orchestration; converts CLI options into actions.
-- `internal/config`: YAML loading, discovery, defaults, and validation.
-- `internal/dashboard`: input discovery and dashboard parsing.
-- `internal/rule`: stable internal domain types for rules and findings.
+- `internal/cli`: command syntax, flags, and CLI exit handling; no linting logic.
+- `internal/app`: high-level orchestration; converts CLI options into application actions.
+- `internal/config`: YAML loading, discovery, defaults, validation, and ignores.
+- `internal/dashboard`: input discovery, dashboard parsing, JSONPath-like helpers, and safe writes.
+- `internal/rule`: internal domain types for rules, findings, severities, and fixes.
 - `internal/rules/builtin`: built-in rules.
 - `internal/rules/config`: config-defined custom rules.
 - `internal/lint`: rule execution pipeline.
-- `internal/output`: output formatting and ordering.
+- `internal/output`: deterministic output formatting and ordering.
 
 ## Dashboard representation
 
-Grafana dashboards have a large and evolving schema. The first version should avoid modeling the entire dashboard as Go structs.
+Grafana dashboards have a large and evolving schema. `gdashlint` avoids modeling the entire dashboard as Go structs.
 
-Instead, parse dashboards into a flexible document representation:
+Dashboards are parsed into a flexible document representation:
 
 ```go
 type Dashboard struct {
@@ -187,16 +172,14 @@ Rules inspect `Root`, normally a `map[string]any`, with helper functions for com
 This provides three advantages:
 
 1. The tool can handle Grafana fields it does not know about yet.
-2. Rules can target arbitrary JSON paths without waiting for typed model changes.
-3. Config-defined custom rules can be expressed in terms of JSON paths.
+2. Rules can target arbitrary supported JSON paths without waiting for typed model changes.
+3. Config-defined custom rules can be expressed in terms of JSONPath-like paths.
 
-Typed wrappers can be added later for high-value areas, for example dashboard title, tags, variables, panels, and templating. Those wrappers should be convenience helpers over the raw JSON document, not a replacement for it.
+Typed wrappers may be added later for high-value areas, for example dashboard title, tags, variables, panels, and templating. Those wrappers should be convenience helpers over the raw JSON document, not a replacement for it.
 
 ## Rule model
 
 Rules are small units that inspect a dashboard and return findings.
-
-Conceptual interface:
 
 ```go
 type Rule interface {
@@ -204,13 +187,9 @@ type Rule interface {
     Check(context.Context, Dashboard) ([]Finding, error)
 }
 
-type Metadata struct {
-    ID          string
-    Name        string
-    Description string
-    Severity    Severity
-    Source      SourceKind
-    Fixable     bool
+type FixableRule interface {
+    Rule
+    Fix(context.Context, *Dashboard) ([]Fix, error)
 }
 ```
 
@@ -227,7 +206,18 @@ type Finding struct {
 }
 ```
 
-### Severity
+A fix contains:
+
+```go
+type Fix struct {
+    RuleID      string
+    File        string
+    Path        string
+    Description string
+}
+```
+
+## Severity
 
 Supported severities:
 
@@ -237,11 +227,11 @@ warning
 info
 ```
 
-Severity controls display and CI failure threshold behavior. Configuration may override rule severity.
+`none` is accepted only as a failure threshold. Severity controls display and CI failure threshold behavior. Configuration may override rule severity.
 
 ## Rule ID namespacing
 
-Rule IDs should be namespaced.
+Rule IDs are namespaced.
 
 Examples:
 
@@ -257,35 +247,30 @@ Advantages:
 - Avoids collisions between built-in and user-defined rules.
 - Makes ownership clear in output and config.
 - Lets future rule packs use their own namespace, e.g. `grafana.*`, `prometheus.*`, `company.*`.
-- Allows broad config targeting later, e.g. enabling/disabling `custom.*`.
 - Makes JSON output more stable for downstream automation.
 
-Initial convention:
+Current convention:
 
 - Built-in rules use `core.*`.
-- Config-defined rules default to `custom.*`, unless explicitly prefixed by the user.
+- Config-defined rules default to `custom.*` when the configured ID does not include a dot.
 
 ## Config-defined custom rules
 
-The first custom rule mechanism is YAML configuration, not Go code or external processes.
+The custom rule mechanism is YAML configuration, not Go code or external processes.
 
-This keeps the first implementation:
+This keeps custom rules:
 
 - Safe to run in CI.
 - Easy to review in pull requests.
 - Cross-platform.
 - Dependency-light.
-- Compatible with future external rule support.
 
-Initial generic rule types should focus on common JSON checks, such as:
+Supported generic rule types:
 
-- required path exists
-- path must not exist
-- string matches regex
-- array minimum/maximum length
-- value equals one of a set
-
-The exact rule set can be implemented incrementally after the core runner exists.
+- `required`: path must exist.
+- `forbidden`: path must not exist.
+- `match`: string value must match a regular expression.
+- `oneOf`: value must equal one of a configured set.
 
 ## Config discovery
 
@@ -306,16 +291,12 @@ Invalid explicit config is an error. Missing auto-discovered config is not an er
 
 ## Ignores and suppressions
 
-The first version should support per-path ignores in config.
-
-Suppression dimensions:
+Suppressions can match findings by:
 
 - rule ID
-- path glob
-- optional JSONPath
+- file path glob
+- optional JSONPath-like finding path
 - optional reason
-
-Conceptual example:
 
 ```yaml
 ignore:
@@ -325,11 +306,7 @@ ignore:
     reason: Experimental dashboards are noisy while being migrated.
 ```
 
-Recommended behavior:
-
-- Ignores should be applied after rule execution and before output.
-- Ignored findings should not count toward exit code failure.
-- A later version may add `--show-ignored` for auditability.
+Ignores are applied after rule execution and before output. Ignored findings do not count toward exit code failure.
 
 ## Output architecture
 
@@ -339,12 +316,13 @@ The lint runner returns a result object independent of output format:
 
 ```go
 type Result struct {
-    Findings []Finding
     Summary  Summary
+    Findings []Finding
+    Fixes    []Fix
 }
 ```
 
-The output package renders the result as `text`, `json`, or GitHub Actions annotations.
+The output package renders results as text, JSON, or GitHub Actions annotations.
 
 ### Default ordering
 
@@ -356,15 +334,15 @@ Severity ordering:
 error > warning > info
 ```
 
-Within equal severity, sort by file, then JSON path, then rule ID.
+Within equal severity, output is sorted by file, then JSON path, then rule ID.
 
 A `--sort file` mode groups findings by file for local debugging.
 
 ## JSON output stability
 
-JSON output should be treated as a compatibility surface once released.
+JSON output is a compatibility surface for downstream automation. Breaking changes to field names, rule IDs, or severity values should be treated as compatibility-impacting changes.
 
-Initial shape:
+Example shape:
 
 ```json
 {
@@ -395,20 +373,3 @@ Initial shape:
   ]
 }
 ```
-
-## Implementation sequence
-
-Recommended first implementation slices:
-
-1. CLI command shape and option parsing.
-2. Core domain types: severity, finding, dashboard, rule metadata.
-3. Config loading and discovery with defaults.
-4. Dashboard input loader for files, directories, and stdin.
-5. Lint runner and registry with no-op/empty rule set support.
-6. Output rendering for text and JSON.
-7. Built-in rule registry.
-8. First built-in rules.
-9. Config-defined rule types.
-10. Ignores/suppressions.
-
-This order keeps the architecture testable before rule behavior grows.

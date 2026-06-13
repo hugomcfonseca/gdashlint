@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-`gdashlint` is not yet released. Security support will be defined before the first stable release.
+`gdashlint` is in a pre-1.0 release phase. Security fixes are provided for the latest released version. Older pre-1.0 versions may not receive backported fixes unless maintainers explicitly decide otherwise for a high-impact issue.
 
 ## Reporting a vulnerability
 
@@ -18,3 +18,7 @@ When reporting, include:
 - Any known mitigations.
 
 Maintainers will acknowledge valid reports as soon as practical and coordinate disclosure timelines with reporters.
+
+## Security checks
+
+CI runs Go vulnerability and static security checks, including `govulncheck` and `gosec`. These checks reduce risk but do not replace responsible vulnerability reporting for issues found by manual review or external testing.

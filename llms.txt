@@ -1,0 +1,69 @@
+# gdashlint
+
+`gdashlint` is a Go CLI for linting plain Grafana dashboard JSON files. It supports built-in `core.*` rules, YAML-defined custom rules, CI-friendly output formats, and safe automatic remediation for selected findings.
+
+## Project status
+
+`gdashlint` is in a pre-1.0 release phase. It is intended as a CLI application, not as a public Go library. Implementation packages live under `internal/` and should not be treated as stable external APIs.
+
+## Main commands
+
+- `gdashlint --version`: print build metadata.
+- `gdashlint lint [paths...]`: lint dashboard JSON from files, directories, or stdin via `-`.
+- `gdashlint fix [paths...]`: apply safe remediations to file-backed dashboard JSON.
+- `gdashlint rules`: list built-in and config-defined rules.
+
+## Key documentation
+
+- `README.md`: overview, installation, quick start, common usage.
+- `docs/CLI.md`: command reference, output formats, exit codes.
+- `docs/CONFIGURATION.md`: YAML config schema, custom rules, ignores, JSONPath-like syntax.
+- `docs/BUILTIN_RULES.md`: built-in rule catalog and remediation behavior.
+- `docs/ARCHITECTURE.md`: current package boundaries and internal design.
+- `docs/DOCKER.md`: Docker image usage and publishing notes.
+- `docs/RELEASING.md`: tag-based GoReleaser release process.
+- `docs/ROADMAP.md`: planned improvements and compatibility work.
+- `examples/README.md`: example configs and validation workflows.
+
+## Configuration summary
+
+Config files are optional and auto-discovered upward from the current directory. Supported names:
+
+- `.gdashlint.yaml`
+- `.gdashlint.yml`
+- `gdashlint.yaml`
+- `gdashlint.yml`
+
+Important config sections:
+
+- `failOn`: minimum severity that returns exit code 1.
+- `output`: default output format and sort mode.
+- `rules`: built-in rule enablement, severity overrides, and options.
+- `customRules`: config-defined `required`, `forbidden`, `match`, and `oneOf` rules.
+- `ignore`: suppressions by rule, file path glob, and optional JSONPath-like path.
+
+## Source layout
+
+- `cmd/gdashlint`: process entrypoint.
+- `internal/cli`: Cobra commands and flag handling.
+- `internal/app`: command orchestration.
+- `internal/config`: YAML config loading, discovery, validation, ignores.
+- `internal/dashboard`: dashboard loading, JSONPath-like helpers, safe writes.
+- `internal/rule`: rule, finding, severity, and fix domain types.
+- `internal/rules/builtin`: built-in rules.
+- `internal/rules/config`: config-defined custom rules.
+- `internal/lint`: rule execution pipeline.
+- `internal/output`: text, JSON, GitHub annotation, rules, and fix output rendering.
+
+## Development and validation
+
+Common commands:
+
+```sh
+make fmt
+make test
+make vet
+make check
+```
+
+CI also runs `golangci-lint`, Staticcheck, `gosec`, `govulncheck`, race tests, build checks, and a Docker smoke test.

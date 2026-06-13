@@ -40,6 +40,59 @@ When `fix` is used, output is based on the post-fix dashboard state. With `--dry
 
 For text output, fix summaries are written as a human-readable section before remaining findings. For structured output such as `--format json`, fixes are included in the output payload under `fixes` instead of being written as separate text.
 
+### Remediation examples
+
+`core.dashboard-not-editable` changes explicit editable dashboards:
+
+```json
+{
+  "editable": true
+}
+```
+
+into:
+
+```json
+{
+  "editable": false
+}
+```
+
+`core.refresh-min-interval` raises refresh intervals below the configured minimum:
+
+```json
+{
+  "refresh": "30s"
+}
+```
+
+into the default minimum:
+
+```json
+{
+  "refresh": "1m"
+}
+```
+
+`core.variable-current-empty` clears persisted variable selections:
+
+```json
+{
+  "current": {
+    "text": "prod",
+    "value": "prod"
+  }
+}
+```
+
+into:
+
+```json
+{
+  "current": {}
+}
+```
+
 ## Notes
 
 ### Refresh intervals
