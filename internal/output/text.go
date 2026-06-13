@@ -19,16 +19,24 @@ func Text(writer io.Writer, result lint.Result, sortMode string) error {
 		for _, finding := range result.Findings {
 			if finding.File != lastFile {
 				if lastFile != "" {
-					fmt.Fprintln(writer)
+					if _, err := fmt.Fprintln(writer); err != nil {
+						return err
+					}
 				}
-				fmt.Fprintf(writer, "%s\n", finding.File)
+				if _, err := fmt.Fprintf(writer, "%s\n", finding.File); err != nil {
+					return err
+				}
 				lastFile = finding.File
 			}
-			fmt.Fprintf(writer, "  %-7s %-7s %-36s %-24s %s\n", finding.Severity, fixabilityLabel(finding.Fixable), finding.RuleID, finding.Path, finding.Message)
+			if _, err := fmt.Fprintf(writer, "  %-7s %-7s %-36s %-24s %s\n", finding.Severity, fixabilityLabel(finding.Fixable), finding.RuleID, finding.Path, finding.Message); err != nil {
+				return err
+			}
 		}
 	} else {
 		for _, finding := range result.Findings {
-			fmt.Fprintf(writer, "%-7s %-7s %-36s %-24s %-32s %s\n", finding.Severity, fixabilityLabel(finding.Fixable), finding.RuleID, finding.Path, finding.File, finding.Message)
+			if _, err := fmt.Fprintf(writer, "%-7s %-7s %-36s %-24s %-32s %s\n", finding.Severity, fixabilityLabel(finding.Fixable), finding.RuleID, finding.Path, finding.File, finding.Message); err != nil {
+				return err
+			}
 		}
 	}
 

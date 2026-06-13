@@ -11,7 +11,7 @@
 - Per-path and per-JSONPath ignores.
 - Human-readable, JSON, and GitHub Actions annotation output.
 - Rule-specific options for supported built-in rules.
-- Safe `--fix` support for selected fixable rules.
+- Safe `fix` command support for selected fixable rules.
 - Minimal Docker image for portable CI usage.
 - Cross-platform release packaging through GoReleaser.
 
@@ -138,34 +138,36 @@ GitHub Actions annotations are available for PR checks:
 gdashlint lint dashboards/ --format github
 ```
 
+A separate GitHub Action is maintained in `hugomcfonseca/gdashlint-action` for teams that prefer a reusable workflow integration over direct CLI or Docker usage.
+
 ## Automatic remediations
 
 Some built-in rules are fixable. Apply safe fixes in place:
 
 ```sh
-gdashlint lint dashboards/ --fix
+gdashlint fix dashboards/
 ```
 
 Preview fixes without writing files:
 
 ```sh
-gdashlint lint dashboards/ --fix --dry-run
+gdashlint fix dashboards/ --dry-run
 ```
 
 Write remediated dashboards to sibling files instead of modifying originals:
 
 ```sh
-gdashlint lint dashboards/ --fix --fix-mode copy
-gdashlint lint dashboards/ --fix --fix-mode copy --fix-suffix .remediated
+gdashlint fix dashboards/ --mode copy
+gdashlint fix dashboards/ --mode copy --suffix .remediated
 ```
 
-`--fix` currently requires file-backed inputs and does not support stdin. With `--dry-run`, fixes are simulated in memory and the command exits `1` if any file would be changed.
+`fix` currently requires file-backed inputs and does not support stdin. With `--dry-run`, fixes are simulated in memory and the command exits `1` if any file would be changed.
 
 ## Exit codes
 
 ```text
 0 = command succeeded and no finding met the fail threshold
-1 = findings met the fail threshold, or --fix --dry-run would apply changes
+1 = findings met the fail threshold, or fix --dry-run would apply changes
 2 = usage, configuration, input, parse, or runtime error
 ```
 
@@ -198,6 +200,7 @@ Run from source:
 go run ./cmd/gdashlint --version
 go run ./cmd/gdashlint rules
 go run ./cmd/gdashlint lint dashboards/
+go run ./cmd/gdashlint fix dashboards/ --dry-run
 ```
 
 ## Documentation

@@ -56,10 +56,10 @@ docker run --rm \
   -v "$PWD:/work" \
   -w /work \
   docker.io/hugomcfonseca/gdashlint:latest \
-  lint dashboards/ --fix --dry-run
+  fix dashboards/ --dry-run
 ```
 
-When applying `--fix` to mounted files, run the container as your host user so modified files remain writable by you:
+When applying fixes to mounted files, run the container as your host user so modified files remain writable by you:
 
 ```sh
 docker run --rm \
@@ -67,7 +67,7 @@ docker run --rm \
   -v "$PWD:/work" \
   -w /work \
   docker.io/hugomcfonseca/gdashlint:latest \
-  lint dashboards/ --fix
+  fix dashboards/
 ```
 
 ## Building locally

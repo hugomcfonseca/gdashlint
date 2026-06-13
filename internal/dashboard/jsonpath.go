@@ -55,7 +55,7 @@ func parsePath(path string) ([]pathToken, error) {
 		return nil, nil
 	}
 	if !strings.HasPrefix(path, "$.") {
-		return nil, fmt.Errorf("path %q must start with $.", path)
+		return nil, fmt.Errorf("path %q must start with $", path)
 	}
 
 	parts := strings.Split(strings.TrimPrefix(path, "$."), ".")

@@ -20,12 +20,12 @@ This roadmap tracks likely next steps after the first functional implementation.
 - Add more focused built-in rules based on real dashboard usage.
 - Improve JSONPath support where needed by custom rules.
 - Add generated rule documentation from the live registry.
-- Add CI examples for using `--format github` in downstream dashboard repositories.
+- Add more adoption examples for common dashboard repository layouts.
 - Add baseline support for adopting `gdashlint` on repositories with existing findings.
 
 ## Remediation improvements
 
-- Add a diff preview mode for `--fix`.
+- Add a diff preview mode for `gdashlint fix`.
 - Consider stdout-based remediation for stdin input.
 - Add more safe core remediations where behavior is unambiguous.
 - Explore declarative custom-rule remediations after the core remediation model stabilizes.

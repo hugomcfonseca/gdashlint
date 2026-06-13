@@ -21,7 +21,9 @@ func Run(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer, bui
 	root := newRootCommand(stdin, stdout, stderr, build)
 	root.SetArgs(args)
 	if err := root.Execute(); err != nil {
-		fmt.Fprintf(stderr, "%v\n", err)
+		if _, writeErr := fmt.Fprintf(stderr, "%v\n", err); writeErr != nil {
+			return 2
+		}
 		return 2
 	}
 	return commandExitCode(root)
@@ -52,8 +54,8 @@ func newRootCommand(stdin io.Reader, stdout io.Writer, stderr io.Writer, build B
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if showVersion {
-				fmt.Fprintf(stdout, "gdashlint %s (%s, %s)\n", build.Version, build.Commit, build.Date)
-				return nil
+				_, err := fmt.Fprintf(stdout, "gdashlint %s (%s, %s)\n", build.Version, build.Commit, build.Date)
+				return err
 			}
 			return cmd.Help()
 		},
@@ -63,7 +65,7 @@ func newRootCommand(stdin io.Reader, stdout io.Writer, stderr io.Writer, build B
 	root.SetErr(stderr)
 	root.PersistentFlags().BoolVar(&showVersion, "version", false, "print version information")
 
-	root.AddCommand(newLintCommand(stdin, stdout, stderr), newRulesCommand(stdout))
+	root.AddCommand(newLintCommand(stdin, stdout, stderr), newFixCommand(stdin, stdout, stderr), newRulesCommand(stdout))
 	return root
 }
 
@@ -89,9 +91,35 @@ func newLintCommand(stdin io.Reader, stdout io.Writer, stderr io.Writer) *cobra.
 	cmd.Flags().StringVar(&opts.Format, "format", "", "output format: text, json, or github")
 	cmd.Flags().StringVar(&opts.Sort, "sort", "", "sort mode: severity or file")
 	cmd.Flags().StringVar(&opts.FailOn, "fail-on", "", "minimum severity that fails: error, warning, info, or none")
-	cmd.Flags().BoolVar(&opts.Fix, "fix", false, "apply safe automatic remediations")
-	cmd.Flags().StringVar(&opts.FixMode, "fix-mode", "in-place", "fix write mode: in-place or copy")
-	cmd.Flags().StringVar(&opts.FixSuffix, "fix-suffix", ".fixed", "suffix used before the extension in copy fix mode")
+	return cmd
+}
+
+func newFixCommand(stdin io.Reader, stdout io.Writer, stderr io.Writer) *cobra.Command {
+	var opts app.Options
+	opts.Stdin = stdin
+	opts.Stdout = stdout
+	opts.Stderr = stderr
+	opts.FixMode = "in-place"
+	opts.FixSuffix = ".fixed"
+
+	cmd := &cobra.Command{
+		Use:          "fix [paths...]",
+		Short:        "Apply safe automatic dashboard remediations",
+		Args:         cobra.MinimumNArgs(1),
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			opts.Paths = args
+			code, err := app.Fix(cmd.Context(), opts)
+			setCommandExitCode(cmd.Root(), code)
+			return err
+		},
+	}
+	cmd.Flags().StringVar(&opts.ConfigPath, "config", "", "path to config file")
+	cmd.Flags().StringVar(&opts.Format, "format", "", "output format: text, json, or github")
+	cmd.Flags().StringVar(&opts.Sort, "sort", "", "sort mode: severity or file")
+	cmd.Flags().StringVar(&opts.FailOn, "fail-on", "", "minimum severity that fails: error, warning, info, or none")
+	cmd.Flags().StringVar(&opts.FixMode, "mode", "in-place", "fix write mode: in-place or copy")
+	cmd.Flags().StringVar(&opts.FixSuffix, "suffix", ".fixed", "suffix used before the extension in copy mode")
 	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "show remediations without writing files")
 	return cmd
 }

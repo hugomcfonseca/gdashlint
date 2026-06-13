@@ -84,12 +84,19 @@ func loadDirectory(root string) ([]Dashboard, error) {
 }
 
 func loadFile(path string) (Dashboard, error) {
+	// #nosec G304 -- gdashlint is a local CLI and intentionally reads user-provided dashboard paths.
 	file, err := os.Open(path)
 	if err != nil {
 		return Dashboard{}, fmt.Errorf("open %s: %w", path, err)
 	}
-	defer file.Close()
-	return parse(filepath.Base(path), path, false, file)
+	dashboard, parseErr := parse(filepath.Base(path), path, false, file)
+	if closeErr := file.Close(); closeErr != nil {
+		return Dashboard{}, fmt.Errorf("close %s: %w", path, closeErr)
+	}
+	if parseErr != nil {
+		return Dashboard{}, parseErr
+	}
+	return dashboard, nil
 }
 
 func parse(name string, path string, stdin bool, reader io.Reader) (Dashboard, error) {

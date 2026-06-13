@@ -37,19 +37,17 @@ go run ./cmd/gdashlint lint dashboards/ \
 Preview safe automatic remediations:
 
 ```sh
-go run ./cmd/gdashlint lint dashboards/ \
+go run ./cmd/gdashlint fix dashboards/ \
   --config examples/custom-rules/gdashlint.yaml \
-  --fix \
   --dry-run
 ```
 
 Apply fixes to sibling files instead of modifying originals:
 
 ```sh
-go run ./cmd/gdashlint lint dashboards/ \
+go run ./cmd/gdashlint fix dashboards/ \
   --config examples/custom-rules/gdashlint.yaml \
-  --fix \
-  --fix-mode copy
+  --mode copy
 ```
 
 ## Validating against public Grafana dashboards
@@ -82,10 +80,9 @@ Use `--fail-on none` when you want to inspect findings without returning a faili
 Preview remediations against the public dashboards:
 
 ```sh
-/tmp/gdashlint-validation/gdashlint lint \
+/tmp/gdashlint-validation/gdashlint fix \
   /tmp/gdashlint-validation/dashboards \
   --config examples/custom-rules/gdashlint.yaml \
-  --fix \
   --dry-run
 ```
 

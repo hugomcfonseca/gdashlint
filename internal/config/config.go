@@ -53,6 +53,7 @@ type Ignore struct {
 
 // Load reads a config file from path.
 func Load(path string) (Config, error) {
+	// #nosec G304 -- gdashlint intentionally loads an explicit or discovered local config file.
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return Config{}, fmt.Errorf("read config %s: %w", path, err)

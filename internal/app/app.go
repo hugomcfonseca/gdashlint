@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 
@@ -25,71 +24,70 @@ type Options struct {
 	Stdin      io.Reader
 	Stdout     io.Writer
 	Stderr     io.Writer
-	Fix        bool
 	FixMode    string
 	FixSuffix  string
 	DryRun     bool
 }
 
-// Lint runs dashboard linting.
+// Lint runs read-only dashboard linting.
 func Lint(ctx context.Context, opts Options) (int, error) {
-	cfg, err := config.LoadDiscovered(opts.ConfigPath)
-	if err != nil {
-		return 2, err
-	}
-	applyCLIOverrides(&cfg, opts)
-	if err := cfg.Validate(); err != nil {
-		return 2, err
-	}
-
-	registry, err := buildRegistry(cfg)
-	if err != nil {
-		return 2, err
-	}
-	rules, err := enabledRules(registry, cfg)
+	run, err := prepareRun(opts)
 	if err != nil {
 		return 2, err
 	}
 
-	dashboards, err := dashboard.Loader{Stdin: opts.Stdin}.Load(opts.Paths)
+	result, err := lintResult(ctx, run.rules, run.dashboards, run.cfg)
 	if err != nil {
 		return 2, err
 	}
-
-	var fixes []rule.Fix
-	if opts.Fix {
-		if err := validateFixOptions(opts, dashboards); err != nil {
-			return 2, err
-		}
-		fixes, err = applyFixes(ctx, rules, dashboards, opts)
-		if err != nil {
-			return 2, err
-		}
-		if cfg.Output.Format == "text" {
-			writeFixSummary(opts.Stderr, fixes, opts)
-		}
-	}
-
-	result, err := lint.Runner{Rules: rules}.Run(ctx, dashboards)
-	if err != nil {
+	if err := output.Render(opts.Stdout, result, run.cfg.Output.Format, run.cfg.Output.Sort); err != nil {
 		return 2, err
 	}
-	filtered := config.ApplyIgnores(result.Findings, cfg.Ignore)
-	result = lint.NewResult(result.Summary.Files, filtered)
-	if opts.Fix && cfg.Output.Format != "text" {
-		result.Fixes = fixes
-	}
-
-	if opts.Fix && cfg.Output.Format == "text" && len(result.Findings) > 0 {
-		fmt.Fprintln(opts.Stdout, "Remaining findings after fixes:")
-	}
-	if err := output.Render(opts.Stdout, result, cfg.Output.Format, cfg.Output.Sort); err != nil {
-		return 2, err
-	}
-	if opts.Fix && opts.DryRun && len(fixes) > 0 {
+	if result.HasFailures(run.cfg.FailOnSeverity()) {
 		return 1, nil
 	}
-	if result.HasFailures(cfg.FailOnSeverity()) {
+	return 0, nil
+}
+
+// Fix applies safe automatic dashboard remediations and reports remaining findings.
+func Fix(ctx context.Context, opts Options) (int, error) {
+	run, err := prepareRun(opts)
+	if err != nil {
+		return 2, err
+	}
+	if err := validateFixOptions(opts, run.dashboards); err != nil {
+		return 2, err
+	}
+
+	fixes, err := applyFixes(ctx, run.rules, run.dashboards, opts)
+	if err != nil {
+		return 2, err
+	}
+	if run.cfg.Output.Format == "text" {
+		if err := output.FixSummary(opts.Stderr, fixes, opts.DryRun); err != nil {
+			return 2, err
+		}
+	}
+
+	result, err := lintResult(ctx, run.rules, run.dashboards, run.cfg)
+	if err != nil {
+		return 2, err
+	}
+	if run.cfg.Output.Format != "text" {
+		result.Fixes = fixes
+	}
+	if run.cfg.Output.Format == "text" && len(result.Findings) > 0 {
+		if err := output.RemainingFindingsHeader(opts.Stdout); err != nil {
+			return 2, err
+		}
+	}
+	if err := output.Render(opts.Stdout, result, run.cfg.Output.Format, run.cfg.Output.Sort); err != nil {
+		return 2, err
+	}
+	if opts.DryRun && len(fixes) > 0 {
+		return 1, nil
+	}
+	if result.HasFailures(run.cfg.FailOnSeverity()) {
 		return 1, nil
 	}
 	return 0, nil
@@ -115,22 +113,51 @@ func Rules(opts Options) (int, error) {
 		metadata = append(metadata, lintRule.Metadata())
 	}
 
-	if cfg.Output.Format == "json" {
-		encoder := json.NewEncoder(opts.Stdout)
-		encoder.SetIndent("", "  ")
-		if err := encoder.Encode(metadata); err != nil {
-			return 2, err
-		}
-		return 0, nil
-	}
-	for _, meta := range metadata {
-		fixable := "-"
-		if meta.Fixable {
-			fixable = "fixable"
-		}
-		fmt.Fprintf(opts.Stdout, "%-36s %-7s %-8s %-7s %s\n", meta.ID, meta.Severity, meta.Source, fixable, meta.Description)
+	if err := output.Rules(opts.Stdout, metadata, cfg.Output.Format); err != nil {
+		return 2, err
 	}
 	return 0, nil
+}
+
+type runData struct {
+	cfg        config.Config
+	rules      []rule.Rule
+	dashboards []dashboard.Dashboard
+}
+
+func prepareRun(opts Options) (runData, error) {
+	cfg, err := config.LoadDiscovered(opts.ConfigPath)
+	if err != nil {
+		return runData{}, err
+	}
+	applyCLIOverrides(&cfg, opts)
+	if err := cfg.Validate(); err != nil {
+		return runData{}, err
+	}
+
+	registry, err := buildRegistry(cfg)
+	if err != nil {
+		return runData{}, err
+	}
+	rules, err := enabledRules(registry, cfg)
+	if err != nil {
+		return runData{}, err
+	}
+
+	dashboards, err := dashboard.Loader{Stdin: opts.Stdin}.Load(opts.Paths)
+	if err != nil {
+		return runData{}, err
+	}
+	return runData{cfg: cfg, rules: rules, dashboards: dashboards}, nil
+}
+
+func lintResult(ctx context.Context, rules []rule.Rule, dashboards []dashboard.Dashboard, cfg config.Config) (lint.Result, error) {
+	result, err := lint.Runner{Rules: rules}.Run(ctx, dashboards)
+	if err != nil {
+		return lint.Result{}, err
+	}
+	filtered := config.ApplyIgnores(result.Findings, cfg.Ignore)
+	return lint.NewResult(result.Summary.Files, filtered), nil
 }
 
 func applyCLIOverrides(cfg *config.Config, opts Options) {
@@ -235,14 +262,19 @@ func validateFixOptions(opts Options, dashboards []dashboard.Dashboard) error {
 		mode = "in-place"
 	}
 	if mode != "in-place" && mode != "copy" {
-		return fmt.Errorf("invalid --fix-mode %q", opts.FixMode)
+		return fmt.Errorf("invalid --mode %q", opts.FixMode)
+	}
+	if mode == "copy" {
+		if err := dashboard.ValidateCopySuffix(opts.FixSuffix); err != nil {
+			return err
+		}
 	}
 	for _, dash := range dashboards {
 		if dash.Source.Stdin {
-			return fmt.Errorf("--fix does not support stdin input yet")
+			return fmt.Errorf("fix does not support stdin input yet")
 		}
 		if dash.Source.Path == "" {
-			return fmt.Errorf("--fix requires file-backed dashboard inputs")
+			return fmt.Errorf("fix requires file-backed dashboard inputs")
 		}
 	}
 	return nil
@@ -280,19 +312,4 @@ func applyFixes(ctx context.Context, rules []rule.Rule, dashboards []dashboard.D
 		}
 	}
 	return allFixes, nil
-}
-
-func writeFixSummary(writer io.Writer, fixes []rule.Fix, opts Options) {
-	if writer == nil {
-		writer = io.Discard
-	}
-	verb := "Applied"
-	if opts.DryRun {
-		verb = "Would apply"
-	}
-	fmt.Fprintf(writer, "%s %d fix(es).\n", verb, len(fixes))
-	for _, fix := range fixes {
-		fmt.Fprintf(writer, "  %s %s %s: %s\n", fix.File, fix.RuleID, fix.Path, fix.Description)
-	}
-	fmt.Fprintln(writer)
 }

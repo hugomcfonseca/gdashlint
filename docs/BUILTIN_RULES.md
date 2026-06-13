@@ -17,7 +17,7 @@ Built-in rule IDs use the `core.*` namespace.
 
 ## Automatic remediations
 
-Safe automatic remediations are available through `gdashlint lint --fix`.
+Safe automatic remediations are available through `gdashlint fix`.
 
 Supported fixable rules:
 
@@ -28,15 +28,15 @@ Supported fixable rules:
 Examples:
 
 ```sh
-gdashlint lint dashboards/ --fix
-gdashlint lint dashboards/ --fix --dry-run
-gdashlint lint dashboards/ --fix --fix-mode copy
-gdashlint lint dashboards/ --fix --fix-mode copy --fix-suffix .remediated
+gdashlint fix dashboards/
+gdashlint fix dashboards/ --dry-run
+gdashlint fix dashboards/ --mode copy
+gdashlint fix dashboards/ --mode copy --suffix .remediated
 ```
 
-`--fix` currently requires file-backed inputs and does not support stdin.
+`fix` currently requires file-backed inputs and does not support stdin.
 
-When `--fix` is used, lint output is based on the post-fix dashboard state. With `--dry-run`, fixes are simulated in memory and files are not written. `--fix --dry-run` exits with code `1` when any fix would be applied, even if no findings would remain after the simulated fixes.
+When `fix` is used, output is based on the post-fix dashboard state. With `--dry-run`, fixes are simulated in memory and files are not written. `fix --dry-run` exits with code `1` when any fix would be applied, even if no findings would remain after the simulated fixes.
 
 For text output, fix summaries are written as a human-readable section before remaining findings. For structured output such as `--format json`, fixes are included in the output payload under `fixes` instead of being written as separate text.
 

@@ -33,6 +33,7 @@ The CLI uses subcommands for primary behavior and keeps version as a flag.
 ```sh
 gdashlint --version
 gdashlint lint [paths...] [flags]
+gdashlint fix [paths...] [flags]
 gdashlint rules [flags]
 ```
 
@@ -48,10 +49,6 @@ Initial flags:
 --sort severity|file       Finding sort/group mode. Default: severity.
 --fail-on error|warning|info|none
                            Minimum severity that returns exit code 1. Default: error.
---fix                      Apply safe automatic remediations.
---fix-mode in-place|copy   Write fixed dashboards in place or to sibling files.
---fix-suffix .fixed        Suffix used before .json in copy mode.
---dry-run                  Simulate remediations without writing files.
 ```
 
 Inputs:
@@ -71,6 +68,23 @@ Input rules:
 - `-` reads one dashboard JSON document from stdin.
 - Missing paths, invalid JSON, and unreadable files are runtime errors.
 
+### `gdashlint fix`
+
+Applies safe automatic remediations for fixable rules and reports remaining findings after fixes.
+
+```sh
+--config path              Path to config file. If omitted, auto-discover config.
+--format text|json|github  Output format. Default: text.
+--sort severity|file       Finding sort/group mode. Default: severity.
+--fail-on error|warning|info|none
+                           Minimum severity that returns exit code 1. Default: error.
+--mode in-place|copy       Write fixed dashboards in place or to sibling files.
+--suffix .fixed            Suffix used before .json in copy mode.
+--dry-run                  Simulate remediations without writing files.
+```
+
+`fix` currently requires file-backed dashboard inputs and does not support stdin.
+
 ### `gdashlint rules`
 
 Lists available built-in and config-defined rules.
@@ -85,7 +99,7 @@ Prints build metadata and exits.
 
 ```text
 0 = command succeeded and no finding met the fail threshold
-1 = lint completed and at least one finding met the fail threshold, or --fix --dry-run would apply changes
+1 = lint/fix completed and at least one finding met the fail threshold, or fix --dry-run would apply changes
 2 = usage, configuration, input, parse, or runtime error
 ```
 

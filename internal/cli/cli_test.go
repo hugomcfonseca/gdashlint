@@ -46,14 +46,14 @@ func TestRunLintFromStdin(t *testing.T) {
 	}
 }
 
-func TestRunLintFixInPlace(t *testing.T) {
+func TestRunFixInPlace(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "dashboard.json")
 	writeDashboard(t, path, `{"title":"Example","uid":"example","tags":["team"],"editable":true,"refresh":"30s","templating":{"list":[{"current":{"text":"prod","value":"prod"}}]},"panels":[]}`)
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	code := Run([]string{"lint", path, "--fix", "--fail-on", "none"}, strings.NewReader(""), &stdout, &stderr, BuildInfo{})
+	code := Run([]string{"fix", path, "--fail-on", "none"}, strings.NewReader(""), &stdout, &stderr, BuildInfo{})
 
 	if code != 0 {
 		t.Fatalf("expected exit code 0, got %d, stderr %q", code, stderr.String())
@@ -69,14 +69,14 @@ func TestRunLintFixInPlace(t *testing.T) {
 	}
 }
 
-func TestRunLintFixCopyMode(t *testing.T) {
+func TestRunFixCopyMode(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "dashboard.json")
 	writeDashboard(t, path, `{"title":"Example","uid":"example","tags":["team"],"editable":true,"refresh":"1m","panels":[]}`)
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	code := Run([]string{"lint", path, "--fix", "--fix-mode", "copy", "--fail-on", "none"}, strings.NewReader(""), &stdout, &stderr, BuildInfo{})
+	code := Run([]string{"fix", path, "--mode", "copy", "--fail-on", "none"}, strings.NewReader(""), &stdout, &stderr, BuildInfo{})
 
 	if code != 0 {
 		t.Fatalf("expected exit code 0, got %d, stderr %q", code, stderr.String())
@@ -91,14 +91,96 @@ func TestRunLintFixCopyMode(t *testing.T) {
 	}
 }
 
-func TestRunLintFixDryRunDoesNotWrite(t *testing.T) {
+func TestRunFixRejectsSymlinkInput(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "target.json")
+	link := filepath.Join(dir, "dashboard.json")
+	writeDashboard(t, target, `{"title":"Example","uid":"example","tags":["team"],"editable":true,"refresh":"1m","panels":[]}`)
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("symlinks not supported: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := Run([]string{"fix", link, "--fail-on", "none"}, strings.NewReader(""), &stdout, &stderr, BuildInfo{})
+
+	if code != 2 {
+		t.Fatalf("expected exit code 2, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), "refusing to write through symlink") {
+		t.Fatalf("expected symlink refusal, got %q", stderr.String())
+	}
+}
+
+func TestRunFixCopyModeRejectsSymlinkDestination(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "dashboard.json")
+	target := filepath.Join(dir, "target.json")
+	copyPath := filepath.Join(dir, "dashboard.fixed.json")
+	writeDashboard(t, path, `{"title":"Example","uid":"example","tags":["team"],"editable":true,"refresh":"1m","panels":[]}`)
+	writeDashboard(t, target, `{"title":"Other","uid":"other","tags":["team"],"editable":true,"refresh":"1m","panels":[]}`)
+	if err := os.Symlink(target, copyPath); err != nil {
+		t.Skipf("symlinks not supported: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := Run([]string{"fix", path, "--mode", "copy", "--fail-on", "none"}, strings.NewReader(""), &stdout, &stderr, BuildInfo{})
+
+	if code != 2 {
+		t.Fatalf("expected exit code 2, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), "refusing to write through symlink") {
+		t.Fatalf("expected symlink refusal, got %q", stderr.String())
+	}
+}
+
+func TestRunFixCopyModeRejectsPathSuffix(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "dashboard.json")
 	writeDashboard(t, path, `{"title":"Example","uid":"example","tags":["team"],"editable":true,"refresh":"1m","panels":[]}`)
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	code := Run([]string{"lint", path, "--fix", "--dry-run", "--fail-on", "none"}, strings.NewReader(""), &stdout, &stderr, BuildInfo{})
+	code := Run([]string{"fix", path, "--mode", "copy", "--suffix", "../escaped", "--fail-on", "none"}, strings.NewReader(""), &stdout, &stderr, BuildInfo{})
+
+	if code != 2 {
+		t.Fatalf("expected exit code 2, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), "must be a filename suffix") {
+		t.Fatalf("expected invalid suffix error, got %q", stderr.String())
+	}
+}
+
+func TestRunFixCopyModeCreatesPrivateFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "dashboard.json")
+	writeDashboard(t, path, `{"title":"Example","uid":"example","tags":["team"],"editable":true,"refresh":"1m","panels":[]}`)
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := Run([]string{"fix", path, "--mode", "copy", "--fail-on", "none"}, strings.NewReader(""), &stdout, &stderr, BuildInfo{})
+
+	if code != 0 {
+		t.Fatalf("expected exit code 0, got %d, stderr %q", code, stderr.String())
+	}
+	info, err := os.Stat(filepath.Join(dir, "dashboard.fixed.json"))
+	if err != nil {
+		t.Fatalf("stat fixed dashboard: %v", err)
+	}
+	if got := info.Mode().Perm(); got != 0o600 {
+		t.Fatalf("expected copied dashboard mode 0600, got %o", got)
+	}
+}
+
+func TestRunFixDryRunDoesNotWrite(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "dashboard.json")
+	writeDashboard(t, path, `{"title":"Example","uid":"example","tags":["team"],"editable":true,"refresh":"1m","panels":[]}`)
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := Run([]string{"fix", path, "--dry-run", "--fail-on", "none"}, strings.NewReader(""), &stdout, &stderr, BuildInfo{})
 
 	if code != 1 {
 		t.Fatalf("expected exit code 1 when dry-run would apply fixes, got %d, stderr %q", code, stderr.String())
@@ -115,14 +197,14 @@ func TestRunLintFixDryRunDoesNotWrite(t *testing.T) {
 	}
 }
 
-func TestRunLintFixDryRunJSONIncludesFixes(t *testing.T) {
+func TestRunFixDryRunJSONIncludesFixes(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "dashboard.json")
 	writeDashboard(t, path, `{"title":"Example","uid":"example","tags":["team"],"editable":true,"refresh":"1m","panels":[]}`)
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	code := Run([]string{"lint", path, "--fix", "--dry-run", "--format", "json", "--fail-on", "none"}, strings.NewReader(""), &stdout, &stderr, BuildInfo{})
+	code := Run([]string{"fix", path, "--dry-run", "--format", "json", "--fail-on", "none"}, strings.NewReader(""), &stdout, &stderr, BuildInfo{})
 
 	if code != 1 {
 		t.Fatalf("expected exit code 1 when dry-run would apply fixes, got %d", code)
@@ -136,16 +218,30 @@ func TestRunLintFixDryRunJSONIncludesFixes(t *testing.T) {
 	}
 }
 
-func TestRunLintFixRejectsStdin(t *testing.T) {
+func TestRunFixRejectsStdin(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
+	code := Run([]string{"fix", "-"}, strings.NewReader(`{"title":"Example"}`), &stdout, &stderr, BuildInfo{})
+
+	if code != 2 {
+		t.Fatalf("expected exit code 2, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), "fix does not support stdin") {
+		t.Fatalf("expected stdin fix error, got %q", stderr.String())
+	}
+}
+
+func TestRunLintRejectsFixFlag(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
 	code := Run([]string{"lint", "-", "--fix"}, strings.NewReader(`{"title":"Example"}`), &stdout, &stderr, BuildInfo{})
 
 	if code != 2 {
 		t.Fatalf("expected exit code 2, got %d", code)
 	}
-	if !strings.Contains(stderr.String(), "--fix does not support stdin") {
-		t.Fatalf("expected stdin fix error, got %q", stderr.String())
+	if !strings.Contains(stderr.String(), "unknown flag: --fix") {
+		t.Fatalf("expected unknown --fix flag error, got %q", stderr.String())
 	}
 }
 
