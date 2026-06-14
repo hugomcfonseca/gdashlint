@@ -198,7 +198,7 @@ func fixIfFinding(ctx context.Context, dash *dashboard.Dashboard, lintRule rule.
 		return nil, nil
 	}
 	metadata := lintRule.Metadata()
-	return []rule.Fix{{RuleID: metadata.ID, File: sourceFile(dash.Source), Path: fix.path, Description: customFixDescription(fix, description)}}, nil
+	return []rule.Fix{{RuleID: metadata.ID, File: sourceFile(dash.Source), Path: fix.path, Description: customFixDescription(fix, description), Operation: &rule.FixOperation{Path: fix.path, Value: fix.value}}}, nil
 }
 
 func customFixDescription(fix *customFix, fallback string) string {

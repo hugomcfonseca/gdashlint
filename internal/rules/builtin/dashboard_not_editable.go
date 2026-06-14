@@ -46,7 +46,9 @@ func (r dashboardNotEditable) Fix(_ context.Context, dash *dashboard.Dashboard) 
 	if !ok || !editable {
 		return nil, nil
 	}
-	object["editable"] = false
+	path := "$.editable"
+	value := false
+	object["editable"] = value
 	metadata := r.Metadata()
-	return []rule.Fix{{RuleID: metadata.ID, File: sourceFile(dash.Source), Path: "$.editable", Description: "set editable to false"}}, nil
+	return []rule.Fix{{RuleID: metadata.ID, File: sourceFile(dash.Source), Path: path, Description: "set editable to false", Operation: &rule.FixOperation{Path: path, Value: value}}}, nil
 }

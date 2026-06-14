@@ -77,9 +77,11 @@ func (r refreshMinInterval) Fix(_ context.Context, dash *dashboard.Dashboard) ([
 	if !ok || duration >= minimum {
 		return nil, nil
 	}
-	object["refresh"] = formatDuration(minimum)
+	path := "$.refresh"
+	value := formatDuration(minimum)
+	object["refresh"] = value
 	metadata := r.Metadata()
-	return []rule.Fix{{RuleID: metadata.ID, File: sourceFile(dash.Source), Path: "$.refresh", Description: fmt.Sprintf("set refresh to %s", formatDuration(minimum))}}, nil
+	return []rule.Fix{{RuleID: metadata.ID, File: sourceFile(dash.Source), Path: path, Description: fmt.Sprintf("set refresh to %s", value), Operation: &rule.FixOperation{Path: path, Value: value}}}, nil
 }
 
 func (r refreshMinInterval) WithOptions(options map[string]any) (rule.Rule, error) {
