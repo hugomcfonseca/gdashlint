@@ -10,14 +10,19 @@ import (
 
 // WriteFile writes a dashboard JSON document with stable indentation.
 func WriteFile(path string, dash Dashboard) error {
-	if err := rejectSymlink(path); err != nil {
-		return err
-	}
 	data, err := json.MarshalIndent(dash.Root, "", "  ")
 	if err != nil {
 		return fmt.Errorf("encode %s: %w", path, err)
 	}
 	data = append(data, '\n')
+	return WriteBytes(path, data)
+}
+
+// WriteBytes writes dashboard JSON bytes after applying safe destination checks.
+func WriteBytes(path string, data []byte) error {
+	if err := rejectSymlink(path); err != nil {
+		return err
+	}
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}

@@ -17,7 +17,7 @@ The current implementation supports:
 - Per-path and per-JSONPath ignores.
 - Human-readable text output, JSON output, and GitHub Actions annotations.
 - CI-friendly exit codes with configurable failure threshold.
-- Safe automatic remediations for selected built-in rules.
+- Safe automatic remediations for selected built-in and config-defined custom rules.
 
 Out of scope for the current implementation:
 
@@ -59,12 +59,13 @@ File paths are parsed as single dashboard JSON files. Directory paths are walked
 Applies safe automatic remediations for fixable rules and reports remaining findings after fixes.
 
 ```sh
-gdashlint fix dashboards/
 gdashlint fix dashboards/ --dry-run
+gdashlint fix dashboards/
+gdashlint fix dashboards/ --yes
 gdashlint fix dashboards/ --mode copy
 ```
 
-`fix` currently requires file-backed dashboard inputs and does not support stdin.
+`fix` currently requires file-backed dashboard inputs and does not support stdin. In text mode, fixes are previewed as unified diffs before writes. Non-dry-run fixes prompt for approval unless `--yes` is provided for non-interactive automation.
 
 ### `gdashlint rules`
 
@@ -78,7 +79,7 @@ Prints build metadata injected by release tooling and exits.
 
 ```text
 0 = command succeeded and no finding met the fail threshold
-1 = lint/fix completed and at least one finding met the fail threshold, or fix --dry-run would apply changes
+1 = lint/fix completed and at least one finding met the fail threshold, fix --dry-run would apply changes, or fix approval was declined
 2 = usage, configuration, input, parse, or runtime error
 ```
 
@@ -107,6 +108,7 @@ internal/dashboard/
   dashboard.go        # dashboard document representation
   loader.go           # files, directories, stdin
   jsonpath.go         # supported JSONPath-like helper
+  textfix.go          # text-preserving JSON edits (sjson/gjson)
   write.go            # safe fixed-dashboard writes and copy path helpers
 
 internal/rule/
@@ -131,6 +133,7 @@ internal/output/
   json.go             # machine lint output
   github.go           # GitHub Actions annotations
   fix.go              # text fix summaries
+  diff.go             # text fix diff previews
   rules.go            # rule metadata output
   sort.go             # severity/file ordering
 ```
@@ -158,6 +161,7 @@ Dashboards are parsed into a flexible document representation:
 type Dashboard struct {
     Source Source
     Root   any
+    Raw    []byte // original source bytes, populated for file-backed inputs
 }
 
 type Source struct {
@@ -214,6 +218,12 @@ type Fix struct {
     File        string
     Path        string
     Description string
+    Operation   *FixOperation // concrete text edit; omitted from JSON output
+}
+
+type FixOperation struct {
+    Path  string
+    Value any
 }
 ```
 
@@ -329,7 +339,7 @@ type Result struct {
 }
 ```
 
-The output package renders results as text, JSON, or GitHub Actions annotations.
+The output package renders results as text, JSON, or GitHub Actions annotations. Text-mode fixes additionally render unified diff previews for proposed dashboard writes. JSON output remains machine-readable and carries structured fix metadata instead of diff text.
 
 ### Default ordering
 

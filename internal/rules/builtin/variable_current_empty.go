@@ -79,8 +79,9 @@ func (r variableCurrentEmpty) Fix(_ context.Context, dash *dashboard.Dashboard) 
 			continue
 		}
 		path := fmt.Sprintf("$.templating.list[%d].current", index)
-		object["current"] = map[string]any{}
-		fixes = append(fixes, rule.Fix{RuleID: metadata.ID, File: sourceFile(dash.Source), Path: path, Description: "clear variable current value"})
+		value := map[string]any{}
+		object["current"] = value
+		fixes = append(fixes, rule.Fix{RuleID: metadata.ID, File: sourceFile(dash.Source), Path: path, Description: "clear variable current value", Operation: &rule.FixOperation{Path: path, Value: value}})
 	}
 	return fixes, nil
 }

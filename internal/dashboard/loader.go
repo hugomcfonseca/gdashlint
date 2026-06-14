@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -85,17 +86,15 @@ func loadDirectory(root string) ([]Dashboard, error) {
 
 func loadFile(path string) (Dashboard, error) {
 	// #nosec G304 -- gdashlint is a local CLI and intentionally reads user-provided dashboard paths.
-	file, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return Dashboard{}, fmt.Errorf("open %s: %w", path, err)
+		return Dashboard{}, fmt.Errorf("read %s: %w", path, err)
 	}
-	dashboard, parseErr := parse(filepath.Base(path), path, false, file)
-	if closeErr := file.Close(); closeErr != nil {
-		return Dashboard{}, fmt.Errorf("close %s: %w", path, closeErr)
+	dashboard, err := parse(filepath.Base(path), path, false, bytes.NewReader(data))
+	if err != nil {
+		return Dashboard{}, err
 	}
-	if parseErr != nil {
-		return Dashboard{}, parseErr
-	}
+	dashboard.Raw = append([]byte(nil), data...)
 	return dashboard, nil
 }
 

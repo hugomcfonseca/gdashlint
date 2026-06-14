@@ -5,6 +5,7 @@ package dashboard
 type Dashboard struct {
 	Source Source
 	Root   any
+	Raw    []byte
 }
 
 // Source describes where a dashboard was loaded from.

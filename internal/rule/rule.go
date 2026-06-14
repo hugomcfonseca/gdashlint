@@ -32,12 +32,19 @@ type Rule interface {
 	Check(context.Context, dashboard.Dashboard) ([]Finding, error)
 }
 
+// FixOperation describes the concrete JSON value update behind a remediation.
+type FixOperation struct {
+	Path  string
+	Value any
+}
+
 // Fix describes one automatic remediation.
 type Fix struct {
-	RuleID      string `json:"rule_id"`
-	File        string `json:"file"`
-	Path        string `json:"path"`
-	Description string `json:"description"`
+	RuleID      string        `json:"rule_id"`
+	File        string        `json:"file"`
+	Path        string        `json:"path"`
+	Description string        `json:"description"`
+	Operation   *FixOperation `json:"-"`
 }
 
 // FixableRule is implemented by rules that can safely remediate findings.

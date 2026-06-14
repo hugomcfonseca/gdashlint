@@ -16,7 +16,7 @@
 - Per-path and per-JSONPath ignores.
 - Human-readable, JSON, and GitHub Actions annotation output.
 - Rule-specific options for supported built-in rules.
-- Safe `fix` command support for selected fixable rules.
+- Safe `fix` command support for selected fixable rules, with diff preview and approval before writes.
 - Minimal Docker image for portable CI usage.
 - Cross-platform release packaging through GoReleaser.
 
@@ -171,16 +171,24 @@ A separate GitHub Action is maintained in `hugomcfonseca/gdashlint-action` for t
 
 ## Automatic remediations
 
-Some built-in rules and explicitly configured custom rules are fixable. Apply safe fixes in place:
+Some built-in rules and explicitly configured custom rules are fixable. Preview fixes without writing files:
+
+```sh
+gdashlint fix dashboards/ --dry-run
+```
+
+For text output, `--dry-run` prints a unified diff preview to stdout, simulates the fixes in memory, reports remaining findings, and exits `1` if any file would be changed.
+
+Apply safe fixes in place:
 
 ```sh
 gdashlint fix dashboards/
 ```
 
-Preview fixes without writing files:
+Before writing files, text-mode `fix` prints the diff preview and prompts for approval. Use `--yes` for non-interactive automation:
 
 ```sh
-gdashlint fix dashboards/ --dry-run
+gdashlint fix dashboards/ --yes
 ```
 
 Write remediated dashboards to sibling files instead of modifying originals:
@@ -188,15 +196,16 @@ Write remediated dashboards to sibling files instead of modifying originals:
 ```sh
 gdashlint fix dashboards/ --mode copy
 gdashlint fix dashboards/ --mode copy --suffix .remediated
+gdashlint fix dashboards/ --mode copy --yes
 ```
 
-`fix` currently requires file-backed inputs and does not support stdin. With `--dry-run`, fixes are simulated in memory and the command exits `1` if any file would be changed. Custom rule fixes are declarative and support rule-type-limited `set` and `setDefault` actions on single-target paths without wildcards.
+`fix` currently requires file-backed inputs and does not support stdin. Custom rule fixes are declarative and support rule-type-limited `set` and `setDefault` actions on single-target paths without wildcards.
 
 ## Exit codes
 
 ```text
 0 = command succeeded and no finding met the fail threshold
-1 = findings met the fail threshold, or fix --dry-run would apply changes
+1 = findings met the fail threshold, fix --dry-run would apply changes, or fix approval was declined
 2 = usage, configuration, input, parse, or runtime error
 ```
 

@@ -8,8 +8,9 @@ This roadmap tracks likely next steps after the current pre-1.0 implementation.
 - Go CLI with Cobra.
 - Dashboard loading from files, directories, and stdin for linting.
 - Dedicated `fix` command for safe automatic remediations.
+- Diff previews, interactive approval, and `--yes` automation for `gdashlint fix`.
 - Built-in rules under the `core.*` namespace.
-- Config-defined custom rules.
+- Config-defined custom rules with declarative fixes.
 - YAML configuration discovery.
 - Text, JSON, and GitHub Actions annotation output.
 - Minimal Docker image for portable CI usage.
@@ -25,10 +26,9 @@ This roadmap tracks likely next steps after the current pre-1.0 implementation.
 
 ## Remediation improvements
 
-- Add a diff preview mode for `gdashlint fix`.
 - Consider stdout-based remediation for stdin input.
 - Add more safe core remediations where behavior is unambiguous.
-- Explore declarative custom-rule remediations after the core remediation model stabilizes.
+- Expand declarative custom-rule remediation actions only when their safety and idempotency constraints are clear.
 
 ## Future extensibility
 

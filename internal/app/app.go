@@ -2,9 +2,12 @@
 package app
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/hugomcfonseca/gdashlint/internal/config"
 	"github.com/hugomcfonseca/gdashlint/internal/dashboard"
@@ -17,17 +20,18 @@ import (
 
 // Options contains app-level CLI options.
 type Options struct {
-	ConfigPath string
-	Format     string
-	Sort       string
-	FailOn     string
-	Paths      []string
-	Stdin      io.Reader
-	Stdout     io.Writer
-	Stderr     io.Writer
-	FixMode    string
-	FixSuffix  string
-	DryRun     bool
+	ConfigPath  string
+	Format      string
+	Sort        string
+	FailOn      string
+	Paths       []string
+	Stdin       io.Reader
+	Stdout      io.Writer
+	Stderr      io.Writer
+	FixMode     string
+	FixSuffix   string
+	DryRun      bool
+	AutoApprove bool
 }
 
 // Lint runs read-only dashboard linting.
@@ -60,30 +64,57 @@ func Fix(ctx context.Context, opts Options) (int, error) {
 		return 2, err
 	}
 
-	fixes, err := applyFixes(ctx, run.rules, run.dashboards, opts)
+	fixedDashboards := cloneDashboards(run.dashboards)
+	fixes, err := collectFixes(ctx, run.rules, fixedDashboards)
 	if err != nil {
 		return 2, err
 	}
+	previews, err := buildFixPreviews(run.dashboards, fixedDashboards, fixes, opts)
+	if err != nil {
+		return 2, err
+	}
+	result, err := lintResult(ctx, run.rules, fixedDashboards, run.cfg)
+	if err != nil {
+		return 2, err
+	}
+
 	if run.cfg.Output.Format == "text" {
-		if err := output.FixSummary(opts.Stderr, fixes, opts.DryRun); err != nil {
+		if opts.DryRun && len(fixes) > 0 {
+			if err := output.FixSummary(opts.Stderr, fixes, len(previews), true); err != nil {
+				return 2, err
+			}
+		}
+		if err := renderFixDiffs(opts.Stdout, previews, output.IsColorWriter(opts.Stdout)); err != nil {
+			return 2, err
+		}
+		if err := output.PostFixSummary(opts.Stdout, result.Summary.Files, result.Summary.Findings, result.Summary.Errors, result.Summary.Warnings, result.Summary.Infos, opts.DryRun); err != nil {
+			return 2, err
+		}
+	} else {
+		result.Fixes = fixes
+		if err := output.Render(opts.Stdout, result, run.cfg.Output.Format, run.cfg.Output.Sort); err != nil {
 			return 2, err
 		}
 	}
 
-	result, err := lintResult(ctx, run.rules, run.dashboards, run.cfg)
-	if err != nil {
-		return 2, err
-	}
-	if run.cfg.Output.Format != "text" {
-		result.Fixes = fixes
-	}
-	if run.cfg.Output.Format == "text" && len(result.Findings) > 0 {
-		if err := output.RemainingFindingsHeader(opts.Stdout); err != nil {
+	if !opts.DryRun && len(previews) > 0 {
+		if !opts.AutoApprove {
+			approved, err := confirmFixes(opts.Stdin, opts.Stderr)
+			if err != nil {
+				return 2, err
+			}
+			if !approved {
+				return 1, nil
+			}
+		}
+		if err := writeFixedDashboards(fixedDashboards, previews); err != nil {
 			return 2, err
 		}
-	}
-	if err := output.Render(opts.Stdout, result, run.cfg.Output.Format, run.cfg.Output.Sort); err != nil {
-		return 2, err
+		if run.cfg.Output.Format == "text" {
+			if err := output.FixSummary(opts.Stderr, fixes, len(previews), false); err != nil {
+				return 2, err
+			}
+		}
 	}
 	if opts.DryRun && len(fixes) > 0 {
 		return 1, nil
@@ -299,7 +330,7 @@ func validateFixOptions(opts Options, dashboards []dashboard.Dashboard) error {
 	return nil
 }
 
-func applyFixes(ctx context.Context, rules []rule.Rule, dashboards []dashboard.Dashboard, opts Options) ([]rule.Fix, error) {
+func collectFixes(ctx context.Context, rules []rule.Rule, dashboards []dashboard.Dashboard) ([]rule.Fix, error) {
 	allFixes := make([]rule.Fix, 0)
 	for index := range dashboards {
 		if err := ctx.Err(); err != nil {
@@ -307,7 +338,6 @@ func applyFixes(ctx context.Context, rules []rule.Rule, dashboards []dashboard.D
 		}
 		dash := &dashboards[index]
 
-		fileFixes := make([]rule.Fix, 0)
 		for _, lintRule := range rules {
 			if err := ctx.Err(); err != nil {
 				return nil, fmt.Errorf("context cancelled while applying fixes: %w", err)
@@ -320,21 +350,134 @@ func applyFixes(ctx context.Context, rules []rule.Rule, dashboards []dashboard.D
 			if err != nil {
 				return nil, fmt.Errorf("rule %s fix failed for %s: %w", lintRule.Metadata().ID, dash.Source.Name, err)
 			}
-			fileFixes = append(fileFixes, fixes...)
-		}
-		allFixes = append(allFixes, fileFixes...)
-		if opts.DryRun || len(fileFixes) == 0 {
-			continue
-		}
-		path := dashboards[index].Source.Path
-		if opts.FixMode == "copy" {
-			path = dashboard.CopyPath(path, opts.FixSuffix)
-			dashboards[index].Source.Path = path
-			dashboards[index].Source.Name = path
-		}
-		if err := dashboard.WriteFile(path, dashboards[index]); err != nil {
-			return nil, fmt.Errorf("writing fixed dashboard to %s: %w", path, err)
+			allFixes = append(allFixes, fixes...)
 		}
 	}
 	return allFixes, nil
+}
+
+type fixPreview struct {
+	FromPath string
+	ToPath   string
+	Before   []byte
+	After    []byte
+}
+
+func cloneDashboards(dashboards []dashboard.Dashboard) []dashboard.Dashboard {
+	clones := make([]dashboard.Dashboard, len(dashboards))
+	copy(clones, dashboards)
+	for index := range dashboards {
+		clones[index].Root = cloneJSONValue(dashboards[index].Root)
+	}
+	return clones
+}
+
+func cloneJSONValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		cloned := make(map[string]any, len(typed))
+		for key, nested := range typed {
+			cloned[key] = cloneJSONValue(nested)
+		}
+		return cloned
+	case []any:
+		cloned := make([]any, len(typed))
+		for index, nested := range typed {
+			cloned[index] = cloneJSONValue(nested)
+		}
+		return cloned
+	default:
+		return typed
+	}
+}
+
+func buildFixPreviews(original []dashboard.Dashboard, fixed []dashboard.Dashboard, fixes []rule.Fix, opts Options) ([]fixPreview, error) {
+	previews := make([]fixPreview, 0, len(fixed))
+	fixesByFile := make(map[string][]rule.Fix)
+	for _, fix := range fixes {
+		fixesByFile[fix.File] = append(fixesByFile[fix.File], fix)
+	}
+	for index := range fixed {
+		before := original[index].Raw
+		if len(before) == 0 {
+			return nil, fmt.Errorf("dashboard %s has no source bytes", original[index].Source.Name)
+		}
+		fileFixes := fixesByFile[sourceFile(original[index].Source)]
+		edits := make([]dashboard.TextEdit, 0, len(fileFixes))
+		for _, fix := range fileFixes {
+			if fix.Operation == nil {
+				return nil, fmt.Errorf("fix %s for %s has no text operation", fix.RuleID, sourceFile(original[index].Source))
+			}
+			edits = append(edits, dashboard.TextEdit{Path: fix.Operation.Path, Value: fix.Operation.Value})
+		}
+		after := before
+		if len(edits) > 0 {
+			var err error
+			after, err = dashboard.ApplyTextEdits(before, edits)
+			if err != nil {
+				return nil, fmt.Errorf("building fixed dashboard %s: %w", original[index].Source.Name, err)
+			}
+		}
+		fixed[index].Raw = after
+		toPath := original[index].Source.Path
+		if opts.FixMode == "copy" {
+			toPath = dashboard.CopyPath(toPath, opts.FixSuffix)
+			fixed[index].Source.Path = toPath
+			fixed[index].Source.Name = toPath
+		}
+		if bytes.Equal(before, after) {
+			continue
+		}
+		previews = append(previews, fixPreview{
+			FromPath: original[index].Source.Path,
+			ToPath:   toPath,
+			Before:   before,
+			After:    after,
+		})
+	}
+	return previews, nil
+}
+
+func renderFixDiffs(writer io.Writer, previews []fixPreview, color bool) error {
+	for _, preview := range previews {
+		if err := output.UnifiedDiff(writer, preview.FromPath, preview.ToPath, preview.Before, preview.After, color); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func confirmFixes(reader io.Reader, writer io.Writer) (bool, error) {
+	if _, err := fmt.Fprint(writer, "Apply fixes? [y/N] "); err != nil {
+		return false, err
+	}
+	line, err := bufio.NewReader(reader).ReadString('\n')
+	if err != nil && err != io.EOF {
+		return false, err
+	}
+	answer := strings.ToLower(strings.TrimSpace(line))
+	return answer == "y" || answer == "yes", nil
+}
+
+func sourceFile(source dashboard.Source) string {
+	if source.Path != "" {
+		return source.Path
+	}
+	return source.Name
+}
+
+func writeFixedDashboards(dashboards []dashboard.Dashboard, previews []fixPreview) error {
+	previewByPath := make(map[string]fixPreview, len(previews))
+	for _, preview := range previews {
+		previewByPath[preview.ToPath] = preview
+	}
+	for _, dash := range dashboards {
+		if _, ok := previewByPath[dash.Source.Path]; !ok {
+			continue
+		}
+		if err := dashboard.WriteBytes(dash.Source.Path, dash.Raw); err != nil {
+			return fmt.Errorf("writing fixed dashboard to %s: %w", dash.Source.Path, err)
+		}
+	}
+	return nil
 }
