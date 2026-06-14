@@ -1,6 +1,6 @@
 # CLI Reference
 
-`gdashlint` is organized around subcommands. Normal command output is written to stdout. Errors, diagnostics, and text-mode fix summaries are written to stderr when needed.
+`gdashlint` is organized around subcommands. Normal command output is written to stdout. Errors, diagnostics, and text-mode fix summaries are written to stderr when needed. Text-mode fix diff previews are written to stdout.
 
 ```sh
 gdashlint --version
@@ -43,10 +43,12 @@ Input rules:
 Applies safe automatic remediations for fixable rules and reports remaining findings after fixes.
 
 ```sh
-gdashlint fix dashboards/
 gdashlint fix dashboards/ --dry-run
+gdashlint fix dashboards/
+gdashlint fix dashboards/ --yes
 gdashlint fix dashboards/ --mode copy
 gdashlint fix dashboards/ --mode copy --suffix .remediated
+gdashlint fix dashboards/ --mode copy --yes
 ```
 
 Flags:
@@ -60,6 +62,7 @@ Flags:
 --mode in-place|copy       Write fixed dashboards in place or to sibling files. Default: in-place.
 --suffix .fixed            Suffix used before the extension in copy mode. Default: .fixed.
 --dry-run                  Simulate remediations without writing files.
+-y, --yes                  Apply fixes without interactive approval.
 ```
 
 Constraints:
@@ -69,8 +72,9 @@ Constraints:
 - In copy mode, `--suffix` must be a filename suffix, not a path.
 - Fixed files are written with private file permissions.
 - Existing symlink destinations are refused to avoid writing through symlinks.
+- Without `--dry-run` or `--yes`, `fix` asks for interactive approval before writing. Only `y` or `yes` approves the write.
 
-For text output, fix summaries are written before remaining findings. For JSON output, applied or simulated fixes are included under the `fixes` field.
+For text output, `fix --dry-run` writes a "Would apply" fix summary to stderr, writes a unified diff preview to stdout, then writes remaining findings to stdout with a "After simulated fixes" prefix. Without `--dry-run`, text output writes the diff preview to stdout, writes a remaining-findings summary to stdout with an "After fixes" prefix, optionally prompts for approval on stderr, and then writes an "Applied" fix summary to stderr after writes complete. For JSON output, applied or simulated fixes are included under the `fixes` field; diff previews are not emitted.
 
 ## `gdashlint rules`
 
@@ -152,6 +156,6 @@ gdashlint lint dashboards/ --format github
 
 ```text
 0 = command succeeded and no finding met the fail threshold
-1 = lint/fix completed and at least one finding met the fail threshold, or fix --dry-run would apply changes
+1 = lint/fix completed and at least one finding met the fail threshold, fix --dry-run would apply changes, or fix approval was declined
 2 = usage, configuration, input, parse, or runtime error
 ```

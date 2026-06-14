@@ -28,8 +28,9 @@ Supported fixable rules:
 Examples:
 
 ```sh
-gdashlint fix dashboards/
 gdashlint fix dashboards/ --dry-run
+gdashlint fix dashboards/
+gdashlint fix dashboards/ --yes
 gdashlint fix dashboards/ --mode copy
 gdashlint fix dashboards/ --mode copy --suffix .remediated
 ```
@@ -38,7 +39,7 @@ gdashlint fix dashboards/ --mode copy --suffix .remediated
 
 When `fix` is used, output is based on the post-fix dashboard state. With `--dry-run`, fixes are simulated in memory and files are not written. `fix --dry-run` exits with code `1` when any fix would be applied, even if no findings would remain after the simulated fixes.
 
-For text output, fix summaries are written as a human-readable section before remaining findings. For structured output such as `--format json`, fixes are included in the output payload under `fixes` instead of being written as separate text.
+For text output, `fix --dry-run` writes a fix summary to stderr, writes a unified diff preview to stdout, and then writes remaining findings to stdout. Without `--dry-run`, text output writes the diff preview before prompting for approval; use `--yes` to skip the prompt in automation. For structured output such as `--format json`, fixes are included in the output payload under `fixes` instead of being written as separate text.
 
 ### Remediation examples
 

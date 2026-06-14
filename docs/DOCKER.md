@@ -49,7 +49,7 @@ docker run --rm \
   lint dashboards/ --format github
 ```
 
-Preview safe automatic remediations without writing files:
+Preview safe automatic remediations without writing files. In text mode, this prints a unified diff preview without modifying mounted files:
 
 ```sh
 docker run --rm \
@@ -59,7 +59,7 @@ docker run --rm \
   fix dashboards/ --dry-run
 ```
 
-When applying fixes to mounted files, run the container as your host user so modified files remain writable by you:
+When applying fixes to mounted files in non-interactive Docker usage, pass `--yes` and run the container as your host user so modified files remain writable by you:
 
 ```sh
 docker run --rm \
@@ -67,7 +67,7 @@ docker run --rm \
   -v "$PWD:/work" \
   -w /work \
   docker.io/hugomcfonseca/gdashlint:latest \
-  fix dashboards/
+  fix dashboards/ --yes
 ```
 
 ## Building locally
