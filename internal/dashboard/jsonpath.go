@@ -101,10 +101,9 @@ func (p CompiledPath) Exists(root any) bool {
 func (p CompiledPath) Values(root any) []any {
 	current := []any{root}
 	for _, token := range p.tokens {
-		next := make([]any, 0)
+		next := make([]any, 0, len(current))
 		for _, value := range current {
-			matches := applyToken(value, token)
-			next = append(next, matches...)
+			next = appendTokenMatches(next, value, token)
 		}
 		current = next
 		if len(current) == 0 {
@@ -182,30 +181,30 @@ func parseSegment(segment string) ([]pathToken, error) {
 	return tokens, nil
 }
 
-func applyToken(value any, token pathToken) []any {
+func appendTokenMatches(dst []any, value any, token pathToken) []any {
 	if token.isIndex {
 		items, ok := value.([]any)
 		if !ok {
-			return nil
+			return dst
 		}
 		if token.wildcard {
-			return items
+			return append(dst, items...)
 		}
 		if token.index >= len(items) {
-			return nil
+			return dst
 		}
-		return []any{items[token.index]}
+		return append(dst, items[token.index])
 	}
 
 	object, ok := value.(map[string]any)
 	if !ok {
-		return nil
+		return dst
 	}
 	child, ok := object[token.key]
 	if !ok {
-		return nil
+		return dst
 	}
-	return []any{child}
+	return append(dst, child)
 }
 
 func setTokens(current any, tokens []pathToken, value any) (any, error) {
