@@ -20,3 +20,4 @@ go.work.sum
 .idea/
 .vscode/
 *.swp
+tmp/
