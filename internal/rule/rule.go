@@ -10,8 +10,10 @@ import (
 type SourceKind string
 
 const (
+	// SourceBuiltin identifies a rule provided by gdashlint.
 	SourceBuiltin SourceKind = "builtin"
-	SourceConfig  SourceKind = "config"
+	// SourceConfig identifies a rule loaded from configuration.
+	SourceConfig SourceKind = "config"
 )
 
 // Metadata describes a lint rule.

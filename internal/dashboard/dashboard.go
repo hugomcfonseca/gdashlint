@@ -1,3 +1,4 @@
+// Package dashboard provides JSON dashboard loading and traversal helpers.
 package dashboard
 
 // Dashboard is a parsed Grafana dashboard document.

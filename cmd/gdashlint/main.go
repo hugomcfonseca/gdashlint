@@ -1,3 +1,4 @@
+// Package main provides the gdashlint command-line entrypoint.
 package main
 
 import (

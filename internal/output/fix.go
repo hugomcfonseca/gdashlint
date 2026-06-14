@@ -1,3 +1,4 @@
+// Package output renders lint and fix results in user-facing formats.
 package output
 
 import (

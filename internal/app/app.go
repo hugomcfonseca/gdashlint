@@ -1,3 +1,4 @@
+// Package app coordinates configuration, linting, fixing, and output rendering.
 package app
 
 import (
@@ -108,7 +109,7 @@ func Rules(opts Options) (int, error) {
 		return 2, err
 	}
 
-	metadata := make([]rule.Metadata, 0)
+	metadata := make([]rule.Metadata, 0, len(registry.All()))
 	for _, lintRule := range registry.All() {
 		metadata = append(metadata, lintRule.Metadata())
 	}
@@ -128,25 +129,25 @@ type runData struct {
 func prepareRun(opts Options) (runData, error) {
 	cfg, err := config.LoadDiscovered(opts.ConfigPath)
 	if err != nil {
-		return runData{}, err
+		return runData{}, fmt.Errorf("loading config: %w", err)
 	}
 	applyCLIOverrides(&cfg, opts)
 	if err := cfg.Validate(); err != nil {
-		return runData{}, err
+		return runData{}, fmt.Errorf("validating config: %w", err)
 	}
 
 	registry, err := buildRegistry(cfg)
 	if err != nil {
-		return runData{}, err
+		return runData{}, fmt.Errorf("building rule registry: %w", err)
 	}
 	rules, err := enabledRules(registry, cfg)
 	if err != nil {
-		return runData{}, err
+		return runData{}, fmt.Errorf("enabling rules: %w", err)
 	}
 
 	dashboards, err := dashboard.Loader{Stdin: opts.Stdin}.Load(opts.Paths)
 	if err != nil {
-		return runData{}, err
+		return runData{}, fmt.Errorf("loading dashboards: %w", err)
 	}
 	return runData{cfg: cfg, rules: rules, dashboards: dashboards}, nil
 }
@@ -154,7 +155,7 @@ func prepareRun(opts Options) (runData, error) {
 func lintResult(ctx context.Context, rules []rule.Rule, dashboards []dashboard.Dashboard, cfg config.Config) (lint.Result, error) {
 	result, err := lint.Runner{Rules: rules}.Run(ctx, dashboards)
 	if err != nil {
-		return lint.Result{}, err
+		return lint.Result{}, fmt.Errorf("running lint: %w", err)
 	}
 	filtered := config.ApplyIgnores(result.Findings, cfg.Ignore)
 	return lint.NewResult(result.Summary.Files, filtered), nil
@@ -175,10 +176,10 @@ func applyCLIOverrides(cfg *config.Config, opts Options) {
 func buildRegistry(cfg config.Config) (*rule.Registry, error) {
 	registry := rule.NewRegistry()
 	if err := builtin.Register(registry); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("registering builtin rules: %w", err)
 	}
 	if err := configrules.Register(registry, cfg.CustomRules); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("registering config rules: %w", err)
 	}
 	return registry, nil
 }
@@ -218,9 +219,9 @@ func enabledRules(registry *rule.Registry, cfg config.Config) ([]rule.Rule, erro
 		if ok && override.Severity != "" {
 			severity, err := rule.ParseSeverity(override.Severity)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("parsing severity for rule %s: %w", metadata.ID, err)
 			}
-			lintRule = severityRule{Rule: lintRule, severity: severity}
+			lintRule = newSeverityRule(lintRule, severity)
 		}
 		rules = append(rules, lintRule)
 	}
@@ -232,13 +233,27 @@ type severityRule struct {
 	severity rule.Severity
 }
 
+// newSeverityRule constructs a severityRule with nil check.
+func newSeverityRule(r rule.Rule, severity rule.Severity) rule.Rule {
+	if r == nil {
+		return nil
+	}
+	return severityRule{Rule: r, severity: severity}
+}
+
 func (r severityRule) Metadata() rule.Metadata {
+	if r.Rule == nil {
+		return rule.Metadata{}
+	}
 	metadata := r.Rule.Metadata()
 	metadata.Severity = r.severity
 	return metadata
 }
 
 func (r severityRule) Check(ctx context.Context, dash dashboard.Dashboard) ([]rule.Finding, error) {
+	if r.Rule == nil {
+		return nil, nil
+	}
 	findings, err := r.Rule.Check(ctx, dash)
 	if err != nil {
 		return nil, err
@@ -250,6 +265,9 @@ func (r severityRule) Check(ctx context.Context, dash dashboard.Dashboard) ([]ru
 }
 
 func (r severityRule) Fix(ctx context.Context, dash *dashboard.Dashboard) ([]rule.Fix, error) {
+	if r.Rule == nil {
+		return nil, nil
+	}
 	fixable, ok := r.Rule.(rule.FixableRule)
 	if !ok {
 		return nil, nil
@@ -285,14 +303,14 @@ func applyFixes(ctx context.Context, rules []rule.Rule, dashboards []dashboard.D
 	allFixes := make([]rule.Fix, 0)
 	for index := range dashboards {
 		if err := ctx.Err(); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("context cancelled while applying fixes: %w", err)
 		}
 		dash := &dashboards[index]
 
 		fileFixes := make([]rule.Fix, 0)
 		for _, lintRule := range rules {
 			if err := ctx.Err(); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("context cancelled while applying fixes: %w", err)
 			}
 			fixable, ok := lintRule.(rule.FixableRule)
 			if !ok {
@@ -315,7 +333,7 @@ func applyFixes(ctx context.Context, rules []rule.Rule, dashboards []dashboard.D
 			dashboards[index].Source.Name = path
 		}
 		if err := dashboard.WriteFile(path, dashboards[index]); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("writing fixed dashboard to %s: %w", path, err)
 		}
 	}
 	return allFixes, nil
