@@ -134,6 +134,15 @@ customRules:
     path: $.title
     pattern: "^[A-Za-z][A-Za-z0-9 _-]+: .+"
     message: dashboard title should start with an ownership prefix
+
+  custom.dashboard-timezone:
+    type: required
+    severity: warning
+    path: $.timezone
+    message: dashboard timezone should be set
+    fix:
+      action: setDefault
+      value: browser
 ```
 
 See [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) for the full schema.
@@ -162,7 +171,7 @@ A separate GitHub Action is maintained in `hugomcfonseca/gdashlint-action` for t
 
 ## Automatic remediations
 
-Some built-in rules are fixable. Apply safe fixes in place:
+Some built-in rules and explicitly configured custom rules are fixable. Apply safe fixes in place:
 
 ```sh
 gdashlint fix dashboards/
@@ -181,7 +190,7 @@ gdashlint fix dashboards/ --mode copy
 gdashlint fix dashboards/ --mode copy --suffix .remediated
 ```
 
-`fix` currently requires file-backed inputs and does not support stdin. With `--dry-run`, fixes are simulated in memory and the command exits `1` if any file would be changed.
+`fix` currently requires file-backed inputs and does not support stdin. With `--dry-run`, fixes are simulated in memory and the command exits `1` if any file would be changed. Custom rule fixes are declarative and support rule-type-limited `set` and `setDefault` actions on single-target paths without wildcards.
 
 ## Exit codes
 

@@ -63,6 +63,15 @@ customRules:
     pattern: "^team:[a-z0-9-]+$"
     message: dashboard must include tags using the team:<name> format
 
+  custom.dashboard-timezone:
+    type: required
+    severity: warning
+    path: $.timezone
+    message: dashboard timezone should be set
+    fix:
+      action: setDefault
+      value: browser
+
 ignore:
   - rule: core.panel-title-required
     paths:
@@ -184,6 +193,8 @@ All config-defined custom rules should use stable namespaced IDs. The recommende
 
 If `severity` is omitted, custom rules default to `warning`. If `message` is omitted, `gdashlint` generates a rule-type-specific message.
 
+Custom rules can optionally define a declarative `fix`. Custom fixes are applied only when the custom rule currently reports a finding for the dashboard.
+
 Custom rule types are intentionally small and generic.
 
 #### `required`
@@ -239,6 +250,52 @@ customRules:
     pattern: "^([A-Z][A-Za-z0-9]+): .+"
     message: dashboard title should start with an owning area prefix
 ```
+
+#### Custom fixes
+
+Custom fixes support explicit, declarative remediations. A custom rule is marked fixable only when it includes a valid `fix` block.
+
+Supported actions:
+
+| Action | Supported rule types | Behavior |
+|---|---|---|
+| `set` | `required`, `match`, `oneOf` | Sets the fix path to the configured value when the rule reports a finding. |
+| `setDefault` | `required` | Sets the fix path only when it is missing and the rule reports a finding. |
+
+The optional `fix.path` defaults to the rule's `path`.
+
+```yaml
+customRules:
+  custom.dashboard-refresh-standard:
+    type: oneOf
+    severity: warning
+    path: $.refresh
+    values: ["1m", "5m"]
+    message: dashboard refresh should be 1m or 5m
+    fix:
+      action: set
+      value: 1m
+
+  custom.dashboard-timezone:
+    type: required
+    severity: warning
+    path: $.timezone
+    message: dashboard timezone should be set
+    fix:
+      action: setDefault
+      value: browser
+```
+
+Custom fix guardrails:
+
+- Fix paths must target a single field or array element.
+- Fix paths must not use wildcards such as `$.panels[*].title`.
+- `forbidden` rules do not support fixes yet; a future `remove` action may add that safely.
+- `match` and `oneOf` fixes support only `set`.
+- `set` and `setDefault` require a non-null `value`.
+- For `oneOf` rules, a fix on the rule path must set one of the configured `values`.
+- Fixes are idempotent: rerunning `gdashlint fix` should not keep changing the same dashboard.
+- Custom fixes cannot compute values, read environment variables, edit multiple paths, or invoke external commands.
 
 ### JSONPath-like syntax
 

@@ -33,6 +33,15 @@ func ValidatePath(path string) error {
 	return err
 }
 
+// ValidateWritablePath validates a path that can be used as a single write target.
+func ValidateWritablePath(path string) error {
+	compiled, err := CompilePath(path)
+	if err != nil {
+		return err
+	}
+	return compiled.validateWritable()
+}
+
 // Exists reports whether at least one value exists at path.
 func Exists(root any, path string) (bool, error) {
 	compiled, err := CompilePath(path)
@@ -50,6 +59,37 @@ func Values(root any, path string) ([]any, error) {
 		return nil, err
 	}
 	return compiled.Values(root), nil
+}
+
+// Set updates the value at path and returns the updated root.
+func Set(root any, path string, value any) (any, error) {
+	compiled, err := CompilePath(path)
+	if err != nil {
+		return nil, err
+	}
+	if err := compiled.validateWritable(); err != nil {
+		return nil, err
+	}
+	return setTokens(root, compiled.tokens, value)
+}
+
+// SetDefault updates the missing value at path and reports whether it changed root.
+func SetDefault(root any, path string, value any) (any, bool, error) {
+	compiled, err := CompilePath(path)
+	if err != nil {
+		return nil, false, err
+	}
+	if err := compiled.validateWritable(); err != nil {
+		return nil, false, err
+	}
+	if compiled.Exists(root) {
+		return root, false, nil
+	}
+	updated, err := setTokens(root, compiled.tokens, value)
+	if err != nil {
+		return nil, false, err
+	}
+	return updated, true, nil
 }
 
 // Exists reports whether at least one value exists at the compiled path.
@@ -72,6 +112,18 @@ func (p CompiledPath) Values(root any) []any {
 		}
 	}
 	return current
+}
+
+func (p CompiledPath) validateWritable() error {
+	if len(p.tokens) == 0 {
+		return fmt.Errorf("path must target a field or array element")
+	}
+	for _, token := range p.tokens {
+		if token.wildcard {
+			return fmt.Errorf("path must not contain wildcard selectors")
+		}
+	}
+	return nil
 }
 
 func parsePath(path string) ([]pathToken, error) {
@@ -154,4 +206,48 @@ func applyToken(value any, token pathToken) []any {
 		return nil
 	}
 	return []any{child}
+}
+
+func setTokens(current any, tokens []pathToken, value any) (any, error) {
+	if len(tokens) == 0 {
+		return value, nil
+	}
+	token := tokens[0]
+	if token.isIndex {
+		items, ok := current.([]any)
+		if !ok {
+			return nil, fmt.Errorf("path segment requires an array")
+		}
+		if token.index >= len(items) {
+			return nil, fmt.Errorf("array index %d out of range", token.index)
+		}
+		updated, err := setTokens(items[token.index], tokens[1:], value)
+		if err != nil {
+			return nil, err
+		}
+		items[token.index] = updated
+		return items, nil
+	}
+
+	object, ok := current.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("path segment requires an object")
+	}
+	if len(tokens) == 1 {
+		object[token.key] = value
+		return object, nil
+	}
+	child, ok := object[token.key]
+	if !ok || child == nil {
+		if tokens[1].isIndex {
+			return nil, fmt.Errorf("path segment %q requires an existing array", token.key)
+		}
+		child = map[string]any{}
+	}
+	updated, err := setTokens(child, tokens[1:], value)
+	if err != nil {
+		return nil, err
+	}
+	object[token.key] = updated
+	return object, nil
 }

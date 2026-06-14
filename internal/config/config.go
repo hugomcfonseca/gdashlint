@@ -2,6 +2,8 @@
 package config
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -36,12 +38,20 @@ type RuleOverride struct {
 
 // CustomRule defines a config-defined rule.
 type CustomRule struct {
-	Type     string `yaml:"type"`
-	Severity string `yaml:"severity"`
-	Path     string `yaml:"path"`
-	Message  string `yaml:"message"`
-	Pattern  string `yaml:"pattern"`
-	Values   []any  `yaml:"values"`
+	Type     string         `yaml:"type"`
+	Severity string         `yaml:"severity"`
+	Path     string         `yaml:"path"`
+	Message  string         `yaml:"message"`
+	Pattern  string         `yaml:"pattern"`
+	Values   []any          `yaml:"values"`
+	Fix      *CustomRuleFix `yaml:"fix"`
+}
+
+// CustomRuleFix defines a declarative remediation for a custom rule.
+type CustomRuleFix struct {
+	Action string `yaml:"action"`
+	Path   string `yaml:"path"`
+	Value  any    `yaml:"value"`
 }
 
 // Ignore suppresses findings for a rule and path set.
@@ -124,6 +134,9 @@ func (c Config) Validate() error {
 				return fmt.Errorf("custom rule %s: %w", id, err)
 			}
 		}
+		if err := validateCustomRuleFix(id, custom); err != nil {
+			return err
+		}
 	}
 	for _, ignore := range c.Ignore {
 		if ignore.Rule == "" {
@@ -148,4 +161,60 @@ func (c Config) FailOnSeverity() rule.Severity {
 		return rule.SeverityError
 	}
 	return severity
+}
+
+func validateCustomRuleFix(id string, custom CustomRule) error {
+	if custom.Fix == nil {
+		return nil
+	}
+	fixPath := custom.Fix.Path
+	if fixPath == "" {
+		fixPath = custom.Path
+	}
+	if err := dashboard.ValidateWritablePath(fixPath); err != nil {
+		return fmt.Errorf("custom rule %s: invalid fix path: %w", id, err)
+	}
+	switch custom.Fix.Action {
+	case "set", "setDefault":
+		if custom.Fix.Value == nil {
+			return fmt.Errorf("custom rule %s: fix value is required", id)
+		}
+	default:
+		return fmt.Errorf("custom rule %s: unsupported fix action %q", id, custom.Fix.Action)
+	}
+	if err := validateCustomRuleFixCompatibility(id, custom); err != nil {
+		return err
+	}
+	if custom.Type == "oneOf" && fixPath == custom.Path && !containsJSONEqual(custom.Values, custom.Fix.Value) {
+		return fmt.Errorf("custom rule %s: fix value must be one of the allowed values", id)
+	}
+	return nil
+}
+
+func validateCustomRuleFixCompatibility(id string, custom CustomRule) error {
+	switch custom.Type {
+	case "required":
+		return nil
+	case "match", "oneOf":
+		if custom.Fix.Action != "set" {
+			return fmt.Errorf("custom rule %s: %s fixes support only action %q", id, custom.Type, "set")
+		}
+	case "forbidden":
+		return fmt.Errorf("custom rule %s: forbidden rules do not support fixes yet", id)
+	}
+	return nil
+}
+
+func containsJSONEqual(allowed []any, value any) bool {
+	encodedValue, err := json.Marshal(value)
+	if err != nil {
+		return false
+	}
+	for _, allowedValue := range allowed {
+		encodedAllowed, err := json.Marshal(allowedValue)
+		if err == nil && bytes.Equal(encodedAllowed, encodedValue) {
+			return true
+		}
+	}
+	return false
 }

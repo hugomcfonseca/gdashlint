@@ -51,3 +51,38 @@ func TestCompiledPathValues(t *testing.T) {
 		t.Fatalf("expected compiled path to exist")
 	}
 }
+
+func TestSetCreatesObjectParents(t *testing.T) {
+	root := map[string]any{}
+	updated, err := Set(root, "$.templating.current.value", "prod")
+	if err != nil {
+		t.Fatalf("Set returned error: %v", err)
+	}
+	values, err := Values(updated, "$.templating.current.value")
+	if err != nil {
+		t.Fatalf("Values returned error: %v", err)
+	}
+	if len(values) != 1 || values[0] != "prod" {
+		t.Fatalf("unexpected value: %#v", values)
+	}
+}
+
+func TestSetDefaultDoesNotOverwriteExistingValue(t *testing.T) {
+	root := map[string]any{"refresh": "5m"}
+	updated, changed, err := SetDefault(root, "$.refresh", "1m")
+	if err != nil {
+		t.Fatalf("SetDefault returned error: %v", err)
+	}
+	if changed {
+		t.Fatalf("expected existing value to be unchanged")
+	}
+	if updated.(map[string]any)["refresh"] != "5m" {
+		t.Fatalf("expected refresh to remain 5m, got %#v", updated)
+	}
+}
+
+func TestValidateWritablePathRejectsWildcard(t *testing.T) {
+	if err := ValidateWritablePath("$.panels[*].title"); err == nil {
+		t.Fatalf("expected wildcard write path to be rejected")
+	}
+}

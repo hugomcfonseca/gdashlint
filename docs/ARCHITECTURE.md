@@ -272,6 +272,13 @@ Supported generic rule types:
 - `match`: string value must match a regular expression.
 - `oneOf`: value must equal one of a configured set.
 
+Config-defined rules may opt into safe declarative fixes with a `fix` block. Supported fix actions are intentionally narrow:
+
+- `set`: set a single target path to a literal YAML value when a `required`, `match`, or `oneOf` rule reports a finding.
+- `setDefault`: set a single target path only when it is missing and a `required` rule reports a finding.
+
+`forbidden` rules do not support fixes yet because safe deletion semantics need a separate `remove` action. Custom fix paths default to the rule path, must target one field or array element, and must not contain wildcard selectors. Custom fixes do not compute values, edit multiple paths, call external processes, or infer remediation from dashboard context.
+
 ## Config discovery
 
 Config is optional. If no config is found, defaults apply.
