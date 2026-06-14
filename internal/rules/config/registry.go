@@ -1,3 +1,4 @@
+// Package configrules builds lint rules from gdashlint configuration.
 package configrules
 
 import (

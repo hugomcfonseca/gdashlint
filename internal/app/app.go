@@ -1,3 +1,4 @@
+// Package app coordinates configuration, linting, fixing, and output rendering.
 package app
 
 import (

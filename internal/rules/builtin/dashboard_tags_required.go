@@ -24,18 +24,18 @@ func (dashboardTagsRequired) Metadata() rule.Metadata {
 }
 
 func (r dashboardTagsRequired) Check(_ context.Context, dash dashboard.Dashboard) ([]rule.Finding, error) {
-	min := r.min
-	if min == 0 {
-		min = 1
+	minimumTags := r.min
+	if minimumTags == 0 {
+		minimumTags = 1
 	}
 	values, err := dashboard.Values(dash.Root, "$.tags")
 	if err != nil {
 		return nil, err
 	}
 	tags := stringValues(values)
-	if len(tags) < min {
+	if len(tags) < minimumTags {
 		metadata := r.Metadata()
-		return []rule.Finding{{RuleID: metadata.ID, Severity: metadata.Severity, Message: fmt.Sprintf("dashboard should define at least %d tag(s)", min), Path: "$.tags"}}, nil
+		return []rule.Finding{{RuleID: metadata.ID, Severity: metadata.Severity, Message: fmt.Sprintf("dashboard should define at least %d tag(s)", minimumTags), Path: "$.tags"}}, nil
 	}
 	missing := missingStrings(r.requiredTags, tags)
 	if len(missing) > 0 {
@@ -46,9 +46,9 @@ func (r dashboardTagsRequired) Check(_ context.Context, dash dashboard.Dashboard
 }
 
 func (r dashboardTagsRequired) WithOptions(options map[string]any) (rule.Rule, error) {
-	min := r.min
-	if min == 0 {
-		min = 1
+	minimumTags := r.min
+	if minimumTags == 0 {
+		minimumTags = 1
 	}
 	requiredTags := append([]string(nil), r.requiredTags...)
 	for key, value := range options {
@@ -58,7 +58,7 @@ func (r dashboardTagsRequired) WithOptions(options map[string]any) (rule.Rule, e
 			if !ok || number < 1 || number != float64(int(number)) {
 				return nil, fmt.Errorf("min must be a positive integer")
 			}
-			min = int(number)
+			minimumTags = int(number)
 		case "requiredTags":
 			values, ok := value.([]any)
 			if !ok {
@@ -76,7 +76,7 @@ func (r dashboardTagsRequired) WithOptions(options map[string]any) (rule.Rule, e
 			return nil, fmt.Errorf("unsupported option %q", key)
 		}
 	}
-	return dashboardTagsRequired{min: min, requiredTags: requiredTags}, nil
+	return dashboardTagsRequired{min: minimumTags, requiredTags: requiredTags}, nil
 }
 
 func stringValues(values []any) []string {

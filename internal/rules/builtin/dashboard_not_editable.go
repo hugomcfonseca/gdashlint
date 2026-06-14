@@ -1,3 +1,4 @@
+// Package builtin registers gdashlint's built-in dashboard lint rules.
 package builtin
 
 import (

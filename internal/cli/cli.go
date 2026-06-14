@@ -1,3 +1,4 @@
+// Package cli defines the gdashlint command-line interface.
 package cli
 
 import (

@@ -9,10 +9,14 @@ import (
 type Severity string
 
 const (
-	SeverityError   Severity = "error"
+	// SeverityError marks findings that should fail by default.
+	SeverityError Severity = "error"
+	// SeverityWarning marks findings that indicate policy drift.
 	SeverityWarning Severity = "warning"
-	SeverityInfo    Severity = "info"
-	SeverityNone    Severity = "none"
+	// SeverityInfo marks informational findings.
+	SeverityInfo Severity = "info"
+	// SeverityNone disables failure thresholds.
+	SeverityNone Severity = "none"
 )
 
 // ParseSeverity parses a user-provided severity value.

@@ -1,3 +1,4 @@
+// Package rule defines the shared lint rule interfaces and result types.
 package rule
 
 // Finding is one lint result for one dashboard location.

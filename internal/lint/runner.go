@@ -1,3 +1,4 @@
+// Package lint applies rules to parsed dashboards and summarizes findings.
 package lint
 
 import (

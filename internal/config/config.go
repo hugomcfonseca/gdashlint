@@ -1,3 +1,4 @@
+// Package config loads and validates gdashlint configuration files.
 package config
 
 import (
