@@ -218,6 +218,39 @@ func TestRunFixDryRunJSONIncludesFixes(t *testing.T) {
 	}
 }
 
+func TestRunFixAppliesCustomRuleFix(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "dashboard.json")
+	configPath := filepath.Join(dir, "gdashlint.yaml")
+	writeDashboard(t, path, `{"title":"Example","uid":"example","tags":["team"],"editable":false,"refresh":"1m","panels":[]}`)
+	writeDashboard(t, configPath, `version: 1
+failOn: none
+customRules:
+  custom.timezone-required:
+    type: required
+    path: $.timezone
+    message: dashboard timezone is required
+    fix:
+      action: setDefault
+      value: browser
+`)
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := Run([]string{"fix", path, "--config", configPath, "--fail-on", "none"}, strings.NewReader(""), &stdout, &stderr, BuildInfo{})
+
+	if code != 0 {
+		t.Fatalf("expected exit code 0, got %d, stderr %q", code, stderr.String())
+	}
+	contents := readDashboard(t, path)
+	if !strings.Contains(contents, `"timezone": "browser"`) {
+		t.Fatalf("expected custom fix to set timezone, got %s", contents)
+	}
+	if !strings.Contains(stderr.String(), "custom.timezone-required") {
+		t.Fatalf("expected custom fix summary, got %q", stderr.String())
+	}
+}
+
 func TestRunFixRejectsStdin(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
