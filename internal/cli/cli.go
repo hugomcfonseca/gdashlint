@@ -121,7 +121,8 @@ func newFixCommand(stdin io.Reader, stdout io.Writer, stderr io.Writer) *cobra.C
 	cmd.Flags().StringVar(&opts.FailOn, "fail-on", "", "minimum severity that fails: error, warning, info, or none")
 	cmd.Flags().StringVar(&opts.FixMode, "mode", "in-place", "fix write mode: in-place or copy")
 	cmd.Flags().StringVar(&opts.FixSuffix, "suffix", ".fixed", "suffix used before the extension in copy mode")
-	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "show remediations without writing files")
+	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "preview remediations without writing files")
+	cmd.Flags().BoolVarP(&opts.AutoApprove, "yes", "y", false, "apply fixes without interactive approval")
 	return cmd
 }
 

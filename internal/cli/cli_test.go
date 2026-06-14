@@ -53,19 +53,28 @@ func TestRunFixInPlace(t *testing.T) {
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	code := Run([]string{"fix", path, "--fail-on", "none"}, strings.NewReader(""), &stdout, &stderr, BuildInfo{})
+	code := Run([]string{"fix", path, "--yes", "--fail-on", "none"}, strings.NewReader(""), &stdout, &stderr, BuildInfo{})
 
 	if code != 0 {
 		t.Fatalf("expected exit code 0, got %d, stderr %q", code, stderr.String())
 	}
 	contents := readDashboard(t, path)
-	for _, want := range []string{`"editable": false`, `"refresh": "1m"`, `"current": {}`} {
+	for _, want := range []string{`"editable":false`, `"refresh":"1m"`, `"current":{}`} {
 		if !strings.Contains(contents, want) {
 			t.Fatalf("expected fixed dashboard to contain %s, got %s", want, contents)
 		}
 	}
-	if !strings.Contains(stderr.String(), "Applied 3 fix(es).") {
+	if !strings.Contains(stderr.String(), "Applied 3 fix(es) across 1 dashboard(s).") {
 		t.Fatalf("expected fix summary, got %q", stderr.String())
+	}
+	if strings.Contains(stderr.String(), "Would apply") {
+		t.Fatalf("expected no 'Would apply' in non-dry-run mode, got stderr %q", stderr.String())
+	}
+	if strings.Contains(stdout.String(), "simulated") {
+		t.Fatalf("expected no 'simulated' label in non-dry-run mode, got stdout %q", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "After fixes:") {
+		t.Fatalf("expected post-fix summary in stdout, got %q", stdout.String())
 	}
 }
 
@@ -76,7 +85,7 @@ func TestRunFixCopyMode(t *testing.T) {
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	code := Run([]string{"fix", path, "--mode", "copy", "--fail-on", "none"}, strings.NewReader(""), &stdout, &stderr, BuildInfo{})
+	code := Run([]string{"fix", path, "--mode", "copy", "--yes", "--fail-on", "none"}, strings.NewReader(""), &stdout, &stderr, BuildInfo{})
 
 	if code != 0 {
 		t.Fatalf("expected exit code 0, got %d, stderr %q", code, stderr.String())
@@ -86,7 +95,7 @@ func TestRunFixCopyMode(t *testing.T) {
 		t.Fatalf("expected original dashboard to be unchanged, got %s", original)
 	}
 	fixed := readDashboard(t, filepath.Join(dir, "dashboard.fixed.json"))
-	if !strings.Contains(fixed, `"editable": false`) {
+	if !strings.Contains(fixed, `"editable":false`) {
 		t.Fatalf("expected copied dashboard to be fixed, got %s", fixed)
 	}
 }
@@ -102,7 +111,7 @@ func TestRunFixRejectsSymlinkInput(t *testing.T) {
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	code := Run([]string{"fix", link, "--fail-on", "none"}, strings.NewReader(""), &stdout, &stderr, BuildInfo{})
+	code := Run([]string{"fix", link, "--yes", "--fail-on", "none"}, strings.NewReader(""), &stdout, &stderr, BuildInfo{})
 
 	if code != 2 {
 		t.Fatalf("expected exit code 2, got %d", code)
@@ -125,7 +134,7 @@ func TestRunFixCopyModeRejectsSymlinkDestination(t *testing.T) {
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	code := Run([]string{"fix", path, "--mode", "copy", "--fail-on", "none"}, strings.NewReader(""), &stdout, &stderr, BuildInfo{})
+	code := Run([]string{"fix", path, "--mode", "copy", "--yes", "--fail-on", "none"}, strings.NewReader(""), &stdout, &stderr, BuildInfo{})
 
 	if code != 2 {
 		t.Fatalf("expected exit code 2, got %d", code)
@@ -159,7 +168,7 @@ func TestRunFixCopyModeCreatesPrivateFile(t *testing.T) {
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	code := Run([]string{"fix", path, "--mode", "copy", "--fail-on", "none"}, strings.NewReader(""), &stdout, &stderr, BuildInfo{})
+	code := Run([]string{"fix", path, "--mode", "copy", "--yes", "--fail-on", "none"}, strings.NewReader(""), &stdout, &stderr, BuildInfo{})
 
 	if code != 0 {
 		t.Fatalf("expected exit code 0, got %d, stderr %q", code, stderr.String())
@@ -189,11 +198,59 @@ func TestRunFixDryRunDoesNotWrite(t *testing.T) {
 	if !strings.Contains(contents, `"editable":true`) {
 		t.Fatalf("expected dry-run to leave original dashboard unchanged, got %s", contents)
 	}
-	if !strings.Contains(stderr.String(), "Would apply 1 fix(es).") {
+	if !strings.Contains(stderr.String(), "Would apply 1 fix(es) across 1 dashboard(s).") {
 		t.Fatalf("expected dry-run summary, got %q", stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "No findings") {
-		t.Fatalf("expected post-fix simulated findings, got %q", stdout.String())
+	if !strings.Contains(stdout.String(), "--- "+path) || !strings.Contains(stdout.String(), `+{"title":"Example","uid":"example","tags":["team"],"editable":false`) {
+		t.Fatalf("expected dry-run diff, got %q", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "After simulated fixes: 0 finding(s) remain") {
+		t.Fatalf("expected post-fix summary, got %q", stdout.String())
+	}
+	if strings.Contains(stdout.String(), "No findings") {
+		t.Fatalf("expected concise post-fix summary instead of full lint output, got %q", stdout.String())
+	}
+}
+
+func TestRunFixPromptsForApproval(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "dashboard.json")
+	writeDashboard(t, path, `{"title":"Example","uid":"example","tags":["team"],"editable":true,"refresh":"1m","panels":[]}`)
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := Run([]string{"fix", path, "--fail-on", "none"}, strings.NewReader("yes\n"), &stdout, &stderr, BuildInfo{})
+
+	if code != 0 {
+		t.Fatalf("expected exit code 0, got %d, stderr %q", code, stderr.String())
+	}
+	contents := readDashboard(t, path)
+	if !strings.Contains(contents, `"editable":false`) {
+		t.Fatalf("expected approved fix to write dashboard, got %s", contents)
+	}
+	if !strings.Contains(stderr.String(), "Apply fixes? [y/N]") {
+		t.Fatalf("expected approval prompt, got %q", stderr.String())
+	}
+}
+
+func TestRunFixDeclineDoesNotWrite(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "dashboard.json")
+	writeDashboard(t, path, `{"title":"Example","uid":"example","tags":["team"],"editable":true,"refresh":"1m","panels":[]}`)
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := Run([]string{"fix", path, "--fail-on", "none"}, strings.NewReader("no\n"), &stdout, &stderr, BuildInfo{})
+
+	if code != 1 {
+		t.Fatalf("expected exit code 1 for declined fixes, got %d, stderr %q", code, stderr.String())
+	}
+	contents := readDashboard(t, path)
+	if !strings.Contains(contents, `"editable":true`) {
+		t.Fatalf("expected declined fix to leave dashboard unchanged, got %s", contents)
+	}
+	if !strings.Contains(stdout.String(), "--- "+path) {
+		t.Fatalf("expected diff before decline, got %q", stdout.String())
 	}
 }
 
@@ -237,16 +294,16 @@ customRules:
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	code := Run([]string{"fix", path, "--config", configPath, "--fail-on", "none"}, strings.NewReader(""), &stdout, &stderr, BuildInfo{})
+	code := Run([]string{"fix", path, "--config", configPath, "--yes", "--fail-on", "none"}, strings.NewReader(""), &stdout, &stderr, BuildInfo{})
 
 	if code != 0 {
 		t.Fatalf("expected exit code 0, got %d, stderr %q", code, stderr.String())
 	}
 	contents := readDashboard(t, path)
-	if !strings.Contains(contents, `"timezone": "browser"`) {
+	if !strings.Contains(contents, `"timezone":"browser"`) {
 		t.Fatalf("expected custom fix to set timezone, got %s", contents)
 	}
-	if !strings.Contains(stderr.String(), "custom.timezone-required") {
+	if !strings.Contains(stderr.String(), "Applied 1 fix(es) across 1 dashboard(s).") {
 		t.Fatalf("expected custom fix summary, got %q", stderr.String())
 	}
 }

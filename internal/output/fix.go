@@ -8,26 +8,22 @@ import (
 	"github.com/hugomcfonseca/gdashlint/internal/rule"
 )
 
-// FixSummary writes a human-readable summary of automatic remediations.
-func FixSummary(writer io.Writer, fixes []rule.Fix, dryRun bool) error {
+// FixSummary writes a concise human-readable summary of automatic remediations.
+func FixSummary(writer io.Writer, fixes []rule.Fix, changedFiles int, dryRun bool) error {
 	verb := "Applied"
 	if dryRun {
 		verb = "Would apply"
 	}
-	if _, err := fmt.Fprintf(writer, "%s %d fix(es).\n", verb, len(fixes)); err != nil {
-		return err
-	}
-	for _, fix := range fixes {
-		if _, err := fmt.Fprintf(writer, "  %s %s %s: %s\n", fix.File, fix.RuleID, fix.Path, fix.Description); err != nil {
-			return err
-		}
-	}
-	_, err := fmt.Fprintln(writer)
+	_, err := fmt.Fprintf(writer, "%s %d fix(es) across %d dashboard(s).\n\n", verb, len(fixes), changedFiles)
 	return err
 }
 
-// RemainingFindingsHeader writes the human-readable heading before post-fix findings.
-func RemainingFindingsHeader(writer io.Writer) error {
-	_, err := fmt.Fprintln(writer, "Remaining findings after fixes:")
+// PostFixSummary writes a concise human-readable summary of findings after fixes.
+func PostFixSummary(writer io.Writer, files int, findings int, errors int, warnings int, infos int, dryRun bool) error {
+	prefix := "After fixes"
+	if dryRun {
+		prefix = "After simulated fixes"
+	}
+	_, err := fmt.Fprintf(writer, "%s: %d finding(s) remain in %d dashboard(s): %d error(s), %d warning(s), %d info(s).\n", prefix, findings, files, errors, warnings, infos)
 	return err
 }
