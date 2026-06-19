@@ -8,5 +8,6 @@ type Finding struct {
 	Message  string   `json:"message"`
 	File     string   `json:"file"`
 	Path     string   `json:"path"`
+	Line     int      `json:"-"`
 	Fixable  bool     `json:"fixable"`
 }
