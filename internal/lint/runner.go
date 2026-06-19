@@ -56,6 +56,12 @@ func (r Runner) Run(ctx context.Context, dashboards []dashboard.Dashboard) (Resu
 						finding.File = dash.Source.Path
 					}
 				}
+				if finding.Line < 1 && !dash.Source.Stdin && dash.Source.Path != "" {
+					finding.Line = 1
+					if line, ok := dashboard.LineForPath(dash.Raw, finding.Path); ok {
+						finding.Line = line
+					}
+				}
 				result.add(finding)
 			}
 		}

@@ -15,16 +15,32 @@ func GitHub(writer io.Writer, result lint.Result) error {
 		level := githubLevel(finding.Severity)
 		if _, err := fmt.Fprintf(
 			writer,
-			"::%s file=%s,title=%s::%s\n",
+			"::%s %s::%s\n",
 			level,
-			escapeProperty(finding.File),
-			escapeProperty(finding.RuleID),
+			githubAnnotationProperties(finding),
 			escapeData(fmt.Sprintf("%s (%s)", finding.Message, finding.Path)),
 		); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func githubAnnotationProperties(finding rule.Finding) string {
+	properties := []string{}
+	if isGitHubAnnotatableFile(finding.File) {
+		line := finding.Line
+		if line < 1 {
+			line = 1
+		}
+		properties = append(properties, "file="+escapeProperty(finding.File), fmt.Sprintf("line=%d", line))
+	}
+	properties = append(properties, "title="+escapeProperty(finding.RuleID))
+	return strings.Join(properties, ",")
+}
+
+func isGitHubAnnotatableFile(file string) bool {
+	return file != "" && file != "-" && file != "<stdin>"
 }
 
 func githubLevel(severity rule.Severity) string {
