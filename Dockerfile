@@ -1,6 +1,6 @@
 FROM scratch
 
-ARG TARGETPLATFORM=linux/amd64
+ARG TARGETPLATFORM
 
 COPY ${TARGETPLATFORM}/gdashlint /usr/local/bin/gdashlint
 
