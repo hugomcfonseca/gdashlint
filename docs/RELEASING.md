@@ -4,7 +4,7 @@ Releases are fully automated. Every push to `main` runs `.github/workflows/relea
 
 Tooling:
 
-- [semantic-release](https://github.com/semantic-release/semantic-release) calculates the version and pushes the `vMAJOR.MINOR.PATCH` tag. It is configured in `.releaserc.yaml` and uses only the commit analyzer; it does not publish anything itself.
+- [semantic-release](https://github.com/semantic-release/semantic-release) calculates the version and pushes the `vMAJOR.MINOR.PATCH` tag. It runs through the [`cycjimmy/semantic-release-action`](https://github.com/cycjimmy/semantic-release-action) action, is configured in `.releaserc.yaml`, and uses only the commit analyzer; it does not publish anything itself. The semantic-release and preset versions are pinned in the workflow.
 - [GoReleaser](https://goreleaser.com/) builds the binaries, creates the GitHub Release, and pushes the Docker images. It is configured in `.goreleaser.yaml`.
 
 ## How a release happens
@@ -40,6 +40,10 @@ Because the project is pre-1.0, breaking changes only bump the minor version. Th
 ### Commit message requirements
 
 Use squash merges with the pull request title as the commit message, or make sure every commit that lands on `main` follows Conventional Commits. Commits that do not follow the convention are ignored when calculating the version.
+
+The `PR title` workflow (`.github/workflows/pr-title.yml`) fails pull requests whose title is not a valid Conventional Commit, so the squash commit always carries the right type. In the repository settings, enable squash merging and set the default commit message to "Pull request title"; add `Conventional Commits title` to the required status checks.
+
+The `GoReleaser snapshot` job in `ci.yml` runs `goreleaser check` and a local snapshot build (archives and Docker images, nothing published) on every pull request, so configuration and Dockerfile problems show up before the release.
 
 Dependabot is configured with `fix` for Go modules and `ci` for GitHub Actions, so merged Go dependency updates produce a patch release and GitHub Actions updates do not.
 
