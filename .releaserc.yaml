@@ -1,0 +1,17 @@
+# semantic-release is only used to calculate the next version from Conventional
+# Commits and push the vX.Y.Z tag. GoReleaser builds and publishes the GitHub
+# release and Docker images (see .github/workflows/release.yml).
+branches:
+  - main
+
+tagFormat: v${version}
+
+plugins:
+  - - "@semantic-release/commit-analyzer"
+    - preset: conventionalcommits
+      releaseRules:
+        # Keep breaking changes as minor bumps while the project is pre-1.0.
+        # Remove this rule once v1.0.0 has been released.
+        - breaking: true
+          release: minor
+  - "@semantic-release/release-notes-generator"

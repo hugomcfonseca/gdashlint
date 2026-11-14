@@ -1,87 +1,47 @@
 # Releasing
 
-Releases are built and published by GoReleaser through `.github/workflows/release.yml` and `.goreleaser.yaml`.
+Releases are fully automated. Every push to `main` runs `.github/workflows/release.yml`, which calculates the next version from [Conventional Commits](https://www.conventionalcommits.org/), tags the commit, and publishes the release with GoReleaser.
 
-## Current release model
+Tooling:
 
-Releases are tag-only. Pushing a semver-like tag triggers the release workflow.
+- [semantic-release](https://github.com/semantic-release/semantic-release) calculates the version and pushes the `vMAJOR.MINOR.PATCH` tag. It is configured in `.releaserc.yaml` and uses only the commit analyzer; it does not publish anything itself.
+- [GoReleaser](https://goreleaser.com/) builds the binaries, creates the GitHub Release, and pushes the Docker images. It is configured in `.goreleaser.yaml`.
 
-Supported release tags use this format:
+## How a release happens
 
-```text
-vMAJOR.MINOR.PATCH
-```
+1. A pull request is merged into `main`.
+2. The release workflow runs `go test ./...`.
+3. semantic-release inspects the commits since the last `v*` tag:
+   - If none of them is releasable, the workflow stops. No tag, release, or image is created.
+   - Otherwise it pushes the next `vMAJOR.MINOR.PATCH` tag.
+4. When a tag was created, the workflow sets up QEMU and Docker Buildx, logs in to Docker Hub, and runs GoReleaser.
+5. GoReleaser publishes the GitHub Release (with a changelog grouped by commit type) and the Docker Hub images.
 
-Examples:
+There is no manual tagging step. Do not push `v*` tags by hand; they are not a release trigger anymore.
 
-```text
-v0.1.0
-v1.2.3
-v1.2.3-rc.1
-```
+## Version calculation
 
-## Creating a release
+| Commit | Bump |
+| --- | --- |
+| `fix:`, `perf:` | patch |
+| `feat:` | minor |
+| `feat!:`, `fix!:`, or a `BREAKING CHANGE:` footer | minor while pre-1.0, major after |
+| `docs:`, `test:`, `chore:`, `ci:`, `refactor:`, `style:`, `build:` | no release |
 
-Create and push an annotated tag:
+The highest bump among the commits since the last release wins.
 
-```sh
-git tag -a v0.1.0 -m "Release v0.1.0"
-git push origin v0.1.0
-```
+Because the project is pre-1.0, breaking changes only bump the minor version. This is set by the `breaking: true` rule in `.releaserc.yaml`, which prevents an accidental jump to `v1.0.0`.
 
-The tag push triggers the GoReleaser workflow, which will:
+### Releasing v1.0.0
 
-1. Check out the release tag.
-2. Run tests.
-3. Set up QEMU and Docker Buildx for multi-platform image publishing.
-4. Log in to Docker Hub.
-5. Run GoReleaser.
-6. Publish release artifacts to GitHub Releases and Docker Hub.
+1. Remove the `releaseRules` entry from `.releaserc.yaml` and merge it with a non-releasable commit such as `ci: ...`.
+2. Merge a commit with a breaking change (`feat!: ...` or a `BREAKING CHANGE:` footer). The next release will be `v1.0.0`.
 
-## Version calculation options
+### Commit message requirements
 
-There are two common approaches.
+Use squash merges with the pull request title as the commit message, or make sure every commit that lands on `main` follows Conventional Commits. Commits that do not follow the convention are ignored when calculating the version.
 
-### Manual versioning, current setup
-
-Maintainers choose the version number when creating the release tag.
-
-Pros:
-
-- Simple.
-- Predictable.
-- The Git tag is the single source of truth.
-- No commit-message convention required.
-- Good while the project is still early.
-
-Cons:
-
-- Maintainers must decide each version.
-- No automatic changelog/version calculation beyond GoReleaser's release changelog.
-
-### Automatic versioning, possible future setup
-
-A tool such as Release Please can calculate the next version from Conventional Commits and open a release PR.
-
-Example mapping:
-
-- `fix:` increments patch.
-- `feat:` increments minor.
-- `feat!:` or `BREAKING CHANGE:` increments major.
-
-Pros:
-
-- Consistent version calculation.
-- Maintainer reviews the release PR before the tag is created.
-- Works well once commit conventions are established.
-
-Cons:
-
-- Requires Conventional Commits discipline.
-- Adds another workflow/tool.
-- Can be noisy for young projects.
-
-Recommendation: keep manual tag-based versioning for the initial releases. Add Release Please later once the project has stable contribution conventions.
+Dependabot is configured with `fix` for Go modules and `ci` for GitHub Actions, so merged Go dependency updates produce a patch release and GitHub Actions updates do not.
 
 ## Artifacts
 
@@ -100,11 +60,15 @@ GoReleaser also publishes Docker images to Docker Hub:
 
 Both tags are multi-platform images for Linux amd64 and arm64.
 
-## Docker Hub credentials
+## Repository requirements
 
-The release workflow requires these repository secrets:
+- `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` repository secrets. The token needs permission to push `hugomcfonseca/gdashlint`.
+- The workflow pushes tags with the default `GITHUB_TOKEN` (`contents: write`). If a branch protection rule or ruleset on `main` restricts who can push tags, tag creation by `github-actions[bot]` must be allowed.
 
-- `DOCKERHUB_USERNAME`: Docker Hub username.
-- `DOCKERHUB_TOKEN`: Docker Hub access token with permission to push `hugomcfonseca/gdashlint`.
+If the Docker Hub secrets are missing or invalid, the workflow fails after the tag is created and before GoReleaser publishes anything.
 
-If either secret is missing or invalid, the release workflow will fail before GoReleaser publishes artifacts.
+## Recovering from a failed release
+
+If the tag was pushed but GoReleaser failed (for example because of Docker Hub credentials), fix the cause and re-run the failed workflow run from the Actions tab. The tag already points at the commit being released, so semantic-release makes no new tag and the workflow resumes at GoReleaser for that tag.
+
+A re-run always uses the original commit, even if later commits have landed on `main`, so the original tag is the one that gets released.

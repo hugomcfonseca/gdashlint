@@ -2,19 +2,18 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*.*.*"
+    branches: [main]
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release
   cancel-in-progress: false
 
 jobs:
   release:
-    name: GoReleaser
+    name: Version and release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -28,16 +27,38 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+
       - name: Run tests
         run: go test ./...
 
+      # Calculates the next version from Conventional Commits since the last
+      # v* tag and pushes the new tag. Does nothing when there are no
+      # releasable commits (feat, fix, perf or breaking changes).
+      # Configuration lives in .releaserc.yaml.
+      - name: Calculate version and tag
+        id: version
+        run: |
+          npx --yes \
+            --package semantic-release@25.0.9 \
+            --package conventional-changelog-conventionalcommits@8.0.0 \
+            semantic-release
+          tag="$(git tag --points-at HEAD --list 'v*' | sort -V | tail -n1)"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
       - name: Set up QEMU
+        if: steps.version.outputs.tag != ''
         uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
 
       - name: Set up Docker Buildx
+        if: steps.version.outputs.tag != ''
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Log in to Docker Hub
+        if: steps.version.outputs.tag != ''
         uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: docker.io
@@ -45,10 +66,11 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Run GoReleaser
+        if: steps.version.outputs.tag != ''
         uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
         with:
           distribution: goreleaser
-          version: v2.16.0
+          version: v2.20.2
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
