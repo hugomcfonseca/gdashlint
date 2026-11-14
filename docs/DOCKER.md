@@ -89,7 +89,7 @@ docker run --rm gdashlint:local --version
 
 ## Publishing
 
-Docker Hub publishing is handled by GoReleaser during tag-based releases. The release workflow logs in to Docker Hub with these repository secrets:
+Docker Hub publishing is handled by GoReleaser whenever a push to `main` produces a new release. The release workflow logs in to Docker Hub with these repository secrets:
 
 - `DOCKERHUB_USERNAME`
 - `DOCKERHUB_TOKEN`

@@ -86,6 +86,21 @@ snapshot:
 changelog:
   use: github
   sort: asc
+  groups:
+    - title: Breaking changes
+      regexp: '^.*?(feat|fix|perf|refactor)(\([^)]+\))?!:.+$'
+      order: 0
+    - title: Features
+      regexp: '^.*?feat(\([^)]+\))?:.+$'
+      order: 1
+    - title: Bug fixes
+      regexp: '^.*?fix(\([^)]+\))?:.+$'
+      order: 2
+    - title: Performance improvements
+      regexp: '^.*?perf(\([^)]+\))?:.+$'
+      order: 3
+    - title: Other changes
+      order: 999
   filters:
     exclude:
       - "^docs:"

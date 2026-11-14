@@ -39,7 +39,8 @@ If a check is not relevant to your change or cannot run locally, note that in th
 
 ## Commit and pull request expectations
 
-- Use clear, descriptive commit messages.
+- Use [Conventional Commits](https://www.conventionalcommits.org/) for commit messages and pull request titles (`feat:`, `fix:`, `perf:`, `docs:`, `ci:`, ...). Releases are calculated automatically from them when changes land on `main`; see [`docs/RELEASING.md`](docs/RELEASING.md).
+- Mark breaking changes with `!` (for example `feat!:`) or a `BREAKING CHANGE:` footer.
 - Explain the motivation and user impact of the change.
 - Keep unrelated refactors out of feature or bug-fix pull requests.
 - Update tests for behavior changes.
