@@ -67,10 +67,19 @@ jobs:
           go-package: ./...
           repo-checkout: false
 
-      - name: gosec
-        uses: securego/gosec@5eb1d104ef85ff2c905c877eb600e8c1dee33a22 # v2.30.0
+      # Installed with the project's Go toolchain instead of using the
+      # securego/gosec action: the action runs a prebuilt container whose Go
+      # version lags go.mod and cannot switch toolchains (GOTOOLCHAIN=local).
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          args: ./...
+          go-version-file: go.mod
+          cache: true
+
+      - name: gosec
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@v2.30.0
+          gosec ./...
 
   test:
     name: Go test
