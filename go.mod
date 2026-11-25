@@ -5,8 +5,8 @@ go 1.27.4
 require (
 	github.com/goccy/go-yaml v1.19.2
 	github.com/spf13/cobra v1.10.2
-	github.com/tidwall/gjson v1.20.3
-	github.com/tidwall/sjson v1.2.9
+	github.com/tidwall/gjson v1.20.6
+	github.com/tidwall/sjson v1.2.11
 )
 
 require (
